@@ -6,9 +6,8 @@ source preparation are separate states. Do not publish placeholder-only packages
 | Ecosystem | Requested identity | Current state |
 | --- | --- | --- |
 | GitHub | `antimemeai/verbs` | Public personal repository created |
-| Rust / crates.io | `verbs` | Package validates; publication rejected with HTTP 403 authentication failed; token refresh required |
-| Python / PyPI | `pyverbs` | Taken by [rdma-core bindings](https://pypi.org/project/pyverbs/) |
-| Python alternative | `verbs-agent` | API returned 404; source prepared, not packaged or claimed |
+| Rust / crates.io | `verbs` | Published 0.1.0; public API confirms the version and repository |
+| Python / PyPI | `pverbs` | Operator-selected name; wheel/sdist installation checks pass; publication next |
 | npm | `jsverbs` | API returned 404; package prepared; npm login required |
 | JSR | `@antimemeai/verbs` | Source prepared; scope/package creation and authentication required |
 | ConanCenter | `verbs` | Recipe path absent; local package creation and consumer test pass, central submission/review required |
@@ -27,9 +26,18 @@ creation, Dart analysis and publication dry run (zero warnings), and NuGet
 package creation. These are package-preparation results; no registry upload
 was run. Haskell/Common Lisp/Zig remain research candidates.
 
-Rust: `cargo publish` from the repository root. The local rustup toolchain is
-pinned in rust-toolchain.toml; prefer `~/.cargo/bin` on PATH. Standard Cargo
-credentials stay outside this repository.
+Rust: [verbs 0.1.0](https://crates.io/crates/verbs) is published. The local rustup
+toolchain is pinned in rust-toolchain.toml; prefer ~/.cargo/bin on PATH. The
+release utility `python scripts/publish.py crates` reads the crates key in
+~/projects/.env and passes CARGO_REGISTRY_TOKEN to Cargo. No credential is
+written into this repository or persistent Cargo configuration.
+
+Python: pverbs is the operator-selected distribution and import name. pyverbs
+remains an unrelated [rdma-core binding](https://pypi.org/project/pyverbs/).
+Run scripts/check-python-package.sh to build a wheel and sdist and test isolated
+installations on Python 3.10. Setuptools is the discussed build-only backend;
+the installed module has no runtime dependencies. `python scripts/publish.py
+pypi` reads the pypi key in ~/projects/.env and uploads the prepared artifacts.
 
 npm: `cd packages/js && npm login && npm publish --access public`. Dry run with
 `npm pack --dry-run`. Package includes ESM JavaScript and TypeScript declarations.
@@ -54,7 +62,8 @@ packages/ocaml/verbs.opam supports local source development.
 See packaging/README.md for submission drafts. The public source tag is v0.1.0.
 JavaScript tests and npm packaging pass. Deno type checking, JSR public-type
 checking, and JSR publication dry run pass. JSR publication still needs account
-authorization. No package registry publication has succeeded yet.
+authorization. Rust publication has succeeded; the remaining registry states
+are listed individually above.
 
 ## Additional provisional footprints
 

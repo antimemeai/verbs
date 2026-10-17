@@ -27,3 +27,23 @@ matched ignored copies of LICENSE in local package-install trees. The same
 issue applied to the unanchored README pattern. Corrected the include list to
 root-anchored source, manifest, README, and LICENSE paths; inspect the resulting
 archive list before retrying. No --allow-dirty workaround is appropriate.
+
+The next attempt still used the saved Cargo credential because the release
+utility initially set the alternate-registry token variable. crates.io reads
+CARGO_REGISTRY_TOKEN. Corrected the environment variable after checking Cargo's
+configuration reference. That failed attempt did not establish that the new
+workspace token was invalid.
+
+With CARGO_REGISTRY_TOKEN set from the workspace crates key, Cargo successfully
+published verbs 0.1.0. The public crates.io API confirms max_version 0.1.0 and
+repository https://github.com/antimemeai/verbs. The archive has seven expected
+files, with no context/ or other language package contents.
+
+Renamed the unpublished Python module from verbs_agent to pverbs and updated
+its contract suite. Added standard pyproject.toml metadata with the setuptools
+build-only backend proposed above. uv built pverbs 0.1.0 as wheel and sdist.
+Separate clean Python 3.10.20 environments installed each artifact with no
+runtime dependencies. The existing contract checks pass against both installed
+copies, with source-directory imports excluded. Metadata version, py.typed
+presence, and absence of runtime requirements were also checked. Publication
+is next; do not claim the PyPI name until its API confirms it.

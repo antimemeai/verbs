@@ -40,7 +40,7 @@ def main():
     token = credential(args.registry)
     env = os.environ.copy()
     if args.registry == "crates":
-        env["CARGO_REGISTRIES_CRATES_IO_TOKEN"] = token
+        env["CARGO_REGISTRY_TOKEN"] = token
         env["PATH"] = str(Path.home() / ".cargo/bin") + os.pathsep + env.get("PATH", "")
         command = [str(Path.home() / ".cargo/bin/cargo"), "publish", "--registry", "crates-io"]
     else:

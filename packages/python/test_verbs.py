@@ -1,6 +1,6 @@
 import unittest
 
-from verbs_agent import Violation, check
+from pverbs import Violation, check
 
 
 class CheckTests(unittest.TestCase):

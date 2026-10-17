@@ -9,6 +9,8 @@ import urllib.request
 
 
 PACKAGES = (
+    ("Rust", "verbs", "https://crates.io/api/v1/crates/verbs"),
+    ("Python", "pverbs", "https://pypi.org/pypi/pverbs/json"),
     ("PHP", "antimemeai/verbs", "https://repo.packagist.org/p2/antimemeai/verbs.json"),
     ("Dart", "verbs", "https://pub.dev/api/packages/verbs"),
     ("Ruby", "verbs", "https://rubygems.org/api/v1/gems/verbs.json"),
