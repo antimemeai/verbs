@@ -86,3 +86,12 @@ neither hidden nor celebrated.
   C"). Lock-free shared mutable state gets no invariant claim. No
   rely/guarantee machinery. Memory-ordering correctness is outside verbs'
   claims.
+
+## Principle: basics first
+
+Early verbs development defers complex cases of invariance. Not forever, and
+possibly not for long, but the basics must be nailed absolutely before any
+long side quest. When a design question only matters for a complex case, write
+it down as deferred and move on; do not build machinery for it. The rules
+above (ownership, re-entrancy, concurrency) already mark where the deferred
+territory begins.
