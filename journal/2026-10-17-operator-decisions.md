@@ -33,3 +33,29 @@ Preliminaries launched as four research lanes, each writing its report to
 papers/: C++ toolchain burdens (acquiring llvm-project source), core
 literature, agent-feedback/evaluation literature, and reference
 implementations. Manifest and shopping-list entries merge on their return.
+
+## Second round (after the research lanes)
+
+- No daemon. Feedback is pushed at Blackbird's edit boundary by a stateless
+  command with an on-disk cache.
+- All C++ code is C++26. Upstream Clang (trunk included) lacks P2996 and
+  P2900; GCC 16 has both, but verbs' analyses are Clang-only. Reflection lives
+  in bloomberg/clang-p2996, contracts in efcs/llvm-project branches. A lane is
+  measuring what building and owning a C++26-capable Clang costs here.
+- Toolchain: upgrade to what it should be rather than lowering pins. Pinned
+  Homebrew llvm (23.1.2) so nothing upgrades by accident: blackbird's preset
+  hard-codes Cellar/llvm/23.1.2. The CLT update (MacOSX26.sdk) needs sudo;
+  the operator runs it.
+- Rust corpus: Oxcart (bow_shock) and rhizome. C++ corpus: blackbird, BRepGPU.
+- Invariants carry the properties they are supposed to have, not every
+  property. Checkers judge declared aspects only; an absent aspect is not a gap.
+- No part of verbs may depend terminally on an LLM. LLMs are first-class users
+  and may propose invariants, but the operator cannot guarantee GPU capacity,
+  so every function must work with no model available. Owned generators
+  (usage-based kind inference, candidate-driven observation,
+  generate-and-refute) are the baseline; model proposals enter the same
+  refuter and ledger as one more source.
+- Old values: C++26 postconditions cannot refer to entry values (P3098R2,
+  "Postcondition captures", May 2026, proposes it post-C++26; PDF in papers/).
+  Design direction under discussion: old values exist only inside the
+  mechanism judging a transformation, never as state in user objects.
