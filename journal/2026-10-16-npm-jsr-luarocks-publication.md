@@ -72,6 +72,11 @@ was made after the deferral.
 JSR authorization completed successfully as Patrick Beam. Deno published
 @antimeme/verbs 0.1.0. The public package API confirms versionCount 1 and
 latestVersion 0.1.0; the registry meta.json independently lists that version.
-Public requests need a suitable User-Agent; an initial default urllib request
-returned 403, while the normal release-check request succeeded. Publication:
+An initial default urllib request returned 403, while a subsequent normal
+release-check request succeeded. Publication:
 https://jsr.io/@antimeme/verbs@0.1.0
+
+An import directly from the published JSR version passed acceptance/rejection
+checks. Deno initially blocked the freshly published version under its default
+24-hour minimum dependency age. For this one verification of our own release,
+used --minimum-dependency-age=0; no project or global security setting changed.
