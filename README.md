@@ -29,7 +29,8 @@ Additional provisional footprints live in `packages/php`, `packages/dart`,
 `packages/ruby`, `packages/erlang`, `packages/dotnet`, and `packages/lua`. The root composer.json
 describes the PHP package for Packagist. Ruby uses the provisional gem name
 `verbs-agent` and Erlang uses `verbs_agent` because `verbs` is taken in both
-registries. Rust's verbs crate, Python's pverbs, and LuaRocks' verbs are published;
+registries. Rust's verbs crate, Python's pverbs, LuaRocks' verbs, and JSR's
+@antimeme/verbs are published;
 see REGISTRIES.md for the other
 publication states.
 

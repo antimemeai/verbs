@@ -63,3 +63,15 @@ requested, pass it through NPM_CONFIG_OTP, and redact it with the API token.
 The earlier JSR request expired before authorization. Started a new request
 for @antimeme/verbs 0.1.0 and provided its fresh browser link. JSR remains
 created with zero published versions until approval and server verification.
+
+The operator deferred npm publication while sorting out its Chrome/passkey
+authentication. Do not retry npm until the operator resumes it. The existing
+credential and optional-code support remain available; no further npm request
+was made after the deferral.
+
+JSR authorization completed successfully as Patrick Beam. Deno published
+@antimeme/verbs 0.1.0. The public package API confirms versionCount 1 and
+latestVersion 0.1.0; the registry meta.json independently lists that version.
+Public requests need a suitable User-Agent; an initial default urllib request
+returned 403, while the normal release-check request succeeded. Publication:
+https://jsr.io/@antimeme/verbs@0.1.0

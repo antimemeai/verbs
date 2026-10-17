@@ -8,8 +8,8 @@ source preparation are separate states. Do not publish placeholder-only packages
 | GitHub | `antimemeai/verbs` | Public personal repository created |
 | Rust / crates.io | `verbs` | Published 0.1.0; public API confirms the version and repository |
 | Python / PyPI | `pverbs` | Published 0.1.0; wheel/sdist hashes confirmed by public API; fresh pip installation passes |
-| npm | `jsverbs` | Upload attempted with saved credential; npm requires an additional OTP or a token permitting 2FA bypass |
-| JSR | `@antimeme/verbs` | Operator created the package; zero versions so far; browser publication authorization next |
+| npm | `jsverbs` | Publication deferred by operator; saved credential requires additional 2FA |
+| JSR | `@antimeme/verbs` | Published 0.1.0; public API and package metadata confirm the release |
 | ConanCenter | `verbs` | Local package creation and consumer test pass; central submission deferred by operator |
 | vcpkg | `verbs` | Port draft prepared; package validation pending, central submission deferred by operator |
 | opam | `verbs` | Package path absent; release manifest with URL/checksum prepared, isolated install and submission required |
@@ -51,9 +51,12 @@ The current token requires a second factor. With a current code saved as
 npm_otp in that file, use `python scripts/publish.py npm --otp-from-env`.
 The code goes only into the child NPM_CONFIG_OTP environment and is redacted
 from captured output. Alternatively supply a publishing token with 2FA bypass.
+The operator deferred npm publication while sorting out its Chrome/passkey
+authentication. Do not retry npm publication until the operator resumes it.
 
-JSR: the operator created @antimeme/verbs. Publish from packages/js with
-`deno publish` and complete browser authorization. All JSR names are scoped;
+JSR: [@antimeme/verbs 0.1.0](https://jsr.io/@antimeme/verbs@0.1.0) is published.
+For future versions, publish from packages/js with `deno publish` and complete
+browser authorization. All JSR names are scoped;
 there is no globally claimed bare `verbs` package. The personal scope can hold
 this package without creating a GitHub organization.
 [Scopes](https://jsr.io/docs/scopes), [publishing](https://jsr.io/docs/publishing-packages).
@@ -64,7 +67,7 @@ repository. A local recipe or overlay does not claim a central registry name.
 [ConanCenter](https://docs.conan.io/2/tutorial/conan_repositories/conan_center.html),
 [vcpkg ports](https://learn.microsoft.com/en-us/vcpkg/concepts/ports).
 
-Current publication scope is npm, JSR, and LuaRocks. The other outstanding
+JSR and LuaRocks publication are complete. npm and the other outstanding
 registry publications can wait. ConanCenter and vcpkg remain intended targets,
 but the operator wants further project development before central review.
 
@@ -75,8 +78,8 @@ packages/ocaml/verbs.opam supports local source development.
 
 See packaging/README.md for submission drafts. The public source tag is v0.1.0.
 JavaScript tests and npm packaging pass. Deno type checking, JSR public-type
-checking, and JSR publication dry run pass. JSR publication still needs account
-authorization. Rust, Python, and LuaRocks publication have succeeded; the remaining registry states
+checking, and publication succeeded. Rust, Python, LuaRocks, and JSR publication
+have succeeded; the remaining registry states
 are listed individually above.
 
 ## Additional provisional footprints
