@@ -135,3 +135,14 @@ concern (design/SPEC.md §7). An agent changing a declaration reads its file,
 so the decision is in view exactly when it matters; a sidecar helps only an
 agent that already knows to look. Sidecar for uneditable code stays deferred
 (verbs-de3.20).
+
+## C++26 reaffirmed after tribunal
+
+The doctrine tribunal noted that nothing in the basics strictly needs C++26
+and that C++23 vlib would remove blackbird's adoption barrier. The operator
+keeps C++26: paying the migration cost now is painful, but it only grows, and
+it is better practice overall even if not immediately required for goals.
+Consequence: blackbird adopts vlib once it builds with the selected C++26
+Clang. Moving blackbird is blackbird's own work and the operator's call; the
+macro fallbacks in design/SPEC.md §8 stay as the hedge if the fork proves
+too costly.
