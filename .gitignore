@@ -12,3 +12,11 @@
 .env
 .venv/
 CMakeUserPresets.json
+*.gem
+**/bin/
+**/obj/
+**/.dart_tool/
+**/pubspec.lock
+**/_build/
+/vendor/
+/composer.lock

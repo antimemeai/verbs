@@ -1,0 +1,10 @@
+{
+  "name": "antimemeai/verbs",
+  "description": "Explicit, named constraints for more verifiable agent-written code",
+  "type": "library",
+  "license": "MIT",
+  "homepage": "https://github.com/antimemeai/verbs",
+  "require": {"php": ">=8.1"},
+  "autoload": {"psr-4": {"Antimemeai\\Verbs\\": "packages/php/src/"}},
+  "scripts": {"test": "php packages/php/tests/check.php"}
+}

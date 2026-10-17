@@ -1,0 +1,10 @@
+{application, verbs_agent, [
+    {description, "Explicit, named constraints for more verifiable code"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {applications, [kernel, stdlib]},
+    {env, []},
+    {modules, []},
+    {licenses, ["MIT"]},
+    {links, [{"GitHub", "https://github.com/antimemeai/verbs"}]}
+]}.
