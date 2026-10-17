@@ -20,10 +20,9 @@ edge (§14).
 Findings are cited by report and ID: soundness B1, checks M7, doctrine D3,
 ergonomics S2.
 
-Marked **[lane]**: text that an open research lane replaces when it
-returns. The escape-v2 lane (papers/2026-10-17-escape-allowlist-v2.md)
-replaces §4.1, §4.5 and §4.8, after ChatGPT F02–F06 and F12 broke the
-read-only exception, the library-internals scope and type-only attribution.
+No section is waiting on a lane. §4.1, §4.5 and §4.8 come from the
+escape-v2 lane (papers/2026-10-17-escape-allowlist-v2.md), written after
+ChatGPT F02–F06 and F12 broke v1.
 
 ---
 
@@ -174,8 +173,10 @@ Every claim holds only under these rules.
    verbs-de3.11.
 2. **No moved-from object is used.** Bead verbs-de3.12.
 3. **Single owner.** An invariant belongs to one declaration and its type.
-   That mutation goes only through the type's operations is not assumed;
-   the escape check establishes it (ChatGPT F01).
+   The owner keeps no second writable view of the object's storage. That
+   includes a byte array or allocator buffer that also backs it (escape-v2
+   §5). That mutation goes only through the type's operations is not
+   assumed; the escape check establishes it (ChatGPT F01).
 4. **One thread at a time.** Lock-scoped and lock-free cases are outside the
    claim, and memory ordering is never claimed. This deliberately narrows
    the operator's concurrency principle, which admits claims under a lock
@@ -365,8 +366,10 @@ If the plan finds none, `Bounded` moves to a bead.
 
 ## 4. The escape check
 
-Every `holds` claim rests on one closed guarantee (papers/2026-10-17-escape-allowlist.md,
-replacing the first draft's deny-list, which two tribunals broke):
+Every `holds` claim rests on one closed guarantee
+(papers/2026-10-17-escape-allowlist.md and -v2.md). It replaces the first
+draft's deny-list, which two tribunals broke, and v1's construct list, which
+two external reviewers broke:
 
 > **The object representation of a vlib-containing object (§2) is written or
 > created only by (a) vlib's own members and factories (`verbs::to`,
@@ -386,33 +389,80 @@ analyzed; no claim depends on it" (checks m1). It is never a false escape and
 never a false `holds`.
 
 The vlib types in the basics are `Bounded` specializations and verbs enums
-(§3.2). Recursion through vlib-containing types stops at pointers and
-references.
+(§3.2).
 
-### 4.1 Representation and type erasure **[lane: escape-v2]**
+### 4.1 Representation: provenance as type
 
-1. **Type erasure.** Converting a pointer or reference to a vlib-containing
-   object to `void*`, `char*`, `unsigned char*`, `std::byte*`, or any
-   unrelated pointer type, by any spelling, implicit included. This covers
-   `fread`, `read`, `recv`, the destination of `memcpy`, and user `void*`
-   helpers.
-   **Read-only exception:** a conversion whose target pointee is `const` is a
-   read. That admits hashing, printing, `fwrite` and `write`.
-2. **Re-typing.** Converting `void*` or a byte pointer back to a pointer to a
-   vlib-containing type. This includes `std::launder`,
-   `std::start_lifetime_as`, `std::construct_at`, and placement `new` over
-   storage that holds a vlib object.
-3. **Bit reinterpretation.** `std::bit_cast`, `__builtin_bit_cast`, and
-   `reinterpret_cast` of references, whose source or result is
-   vlib-containing.
-4. **Raw byte writes.** `memcpy`, `memmove`, `memset` and their builtins into
-   a vlib-containing destination. The exception is a `memcpy` or `memmove`
-   whose source is an object of the same type; trivially copyable relocation
-   is a copy.
-5. **Unions.** A user-declared union with a vlib-containing member, at any
-   depth.
-6. **`asm`.** An `asm` statement with a vlib-containing operand, or any
-   `"memory"` clobber.
+Two transitive notions (papers/2026-10-17-escape-allowlist-v2.md):
+- **vlib-containing** (§2): the object representation holds vlib bytes.
+  Recursion stops at pointers.
+- **vlib-pointer (vpr):** a pointer, reference or pointer-to-member to a
+  vlib-containing type, or a class or wrapper that holds one (`span<E>`,
+  `shared_ptr<E>`, `initializer_list<E>`). Recursion does not stop at
+  pointers.
+
+Reading a value out (`get()`, implicit egress, `std::to_underlying`) never
+converts a vpr, so it is never touched.
+
+1. **Provenance.** A vpr may be converted only to these:
+   - the same type;
+   - its cv-added form;
+   - a class in the same hierarchy (`static_cast` or `dynamic_cast`; a wrong
+     downcast is UB, rule 8).
+
+   Every other conversion out of a vpr is an escape, implicit included:
+   - to `void*` or a byte pointer (this covers `fread`, `recv` and `scanf`
+     destinations);
+   - to an integer;
+   - to a pointer to a different vlib type;
+   - by `bit_cast`, reference or member-pointer reinterpretation;
+   - into a type-erased wrapper (`shared_ptr<void>`), or by
+     `dynamic_cast<void*>`.
+
+   So is every conversion *into* a vpr from anything else (re-typing):
+   - `void*` or bytes to `E*`;
+   - placement `new` or `construct_at` over erased storage.
+
+   `std::launder` returns its argument's type, so it loses nothing. The
+   cast it is paired with is the escape.
+
+   **Read-only sink, the one exception.** An erased const pointer is a read
+   when it is the *direct argument expression* of a call to a function
+   declared outside the repository, whose parameter is pointer- or
+   reference-to-const, and whose return type is not a pointer. That admits
+   `fwrite`, `write`, `memcmp`, a `(const void*, len)` hasher, and `os <<
+   &e`. Once bound to a named variable, the pointer is no longer a direct
+   argument, so `const_cast` paths (ChatGPT F02, MiMo F2) and hand-rolled
+   byte loops are escapes. That loop is the one idiom this costs.
+2. **Library entry points that expose representation.** A call to one of the
+   following with a vpr or vlib-containing argument is an escape. Each
+   returns a differently typed view of its argument's bytes, so the cast
+   happens inside libc++ (ChatGPT F03):
+   - `as_bytes`, `as_writable_bytes` ([span.objectrep]);
+   - `bit_cast` ([bit.cast]);
+   - `start_lifetime_as`, `start_lifetime_as_array` ([obj.lifetime]);
+   - `reinterpret_pointer_cast`, and `static_pointer_cast` to a different
+     element ([util.smartptr.shared.cast]);
+   - `__builtin_assume_aligned`, and the writing atomic builtins.
+
+   The list is closed by the standard's text. A library function exposes
+   bytes only through a clause that specifies a differently typed alias, and
+   these are those clauses. Any other reinterpretation is a cast that rule
+   1 sees, in analyzed code. libc++ internals are not scanned: measured,
+   that needs an open allowlist of benign internals.
+3. **Bit reinterpretation.** `__builtin_bit_cast` whose source or result is
+   vlib-containing or a vpr.
+4. **Raw byte writes.** `memcpy`, `memmove`, `memset` and their builtins
+   into vlib-containing storage. One exception: a `memcpy` or `memmove`
+   whose source and destination pointees are the same vlib-containing
+   type, with a constant length that is a whole multiple of its size. A
+   partial copy is an escape (ChatGPT F12). The arguments' implicit
+   `void*` conversions are judged here, once, not again by rule 1.
+   `memset` to an in-domain value is still an escape. It is fixed in code.
+5. **Unions.** A user-declared union with a vlib-containing or vpr member,
+   at any depth.
+6. **`asm`.** An `asm` statement with a vlib-containing or vpr operand, or
+   any `"memory"` clobber.
 
 ### 4.2 Enums
 
@@ -481,15 +531,16 @@ of these is declared in analyzed code but defined in no analyzed unit:
 The report names the declaration. A template instantiated only in unanalyzed
 units is the same case.
 
-### 4.5 Scope **[lane: escape-v2]**
+### 4.5 Scope
 
 Scope is decided by repository path through verbs' path rule (§6.3), never by
 Clang's system-header flag.
 - A repository file marked `#pragma clang system_header`, or reached through
   `-isystem`, cannot hide an escape.
-- libc++ and SDK internals are out of scope and never reported. Examples are
-  `optional`'s union storage and `vector`'s relocation `memcpy`, which are
-  judged at their typed API.
+- libc++ and SDK code is judged at its typed API. Its internals are not
+  scanned, and are never reported: `optional`'s union storage, `vector`'s
+  relocation `memcpy`. The rule 2 entry points are the closed exception,
+  because their specified effect is to hand back the bytes.
 
 ### 4.6 Silencing
 
@@ -521,31 +572,63 @@ silently (ChatGPT F11). For example:
 A lost claim prints `!` even when the change is intended, so that a reader
 sees it.
 
-### 4.8 Attribution **[lane: escape-v2]**
+### 4.8 Attribution
 
-An escape voids the claims of every declaration of the affected
-vlib-containing type, program-wide. When the sink's type is erased, it voids
-every claim in the unit. Finding the exact declaration needs points-to
-analysis (soundness M7; bead verbs-de3.33). The coarse rule never yields a
-false `holds`; it costs only precision, and escapes are rare.
+Every escape is a conversion or write at a point where the static type of
+its source is known. It voids claims in two steps (ChatGPT F06, MiMo F5):
+1. It voids every **leaf vlib type** contained in that type.
+2. It voids every claim, program-wide, whose type contains one of those
+   leaves.
+
+`memset(&packet, …)` on `struct Packet { E kind; }` voids every claim on `E`:
+`Packet::kind`, and a later `E copy = packet.kind`. A sibling `F other`
+keeps its claim.
+- An escape with no typed source voids every claim program-wide. That is an
+  `asm` `"memory"` clobber with no vlib operand.
+- A rule 7, 9, 10, 11 or 14 escape voids the named type's leaves.
+- The escape-v2 lane proposed voiding only the unit for an erased sink. That
+  is weaker than the type closure when one object is reached from several
+  units, and it was not adopted.
+
+Narrowing to the exact declaration needs points-to analysis (soundness M7;
+bead verbs-de3.33). The coarse rule never yields a false `holds`; it costs
+only precision.
 
 ### 4.9 Evidence
 
-The lane's prototype is a 689-line LibTooling tool, preserved in
-context/prototypes/escape-lane/. Results:
-- **Bypasses caught:** every first-tribunal bypass that belongs to the escape
-  check, including fread, launder, all five enum list-init spellings,
-  specializations, private-member theft, keyword macros, asm, union and
-  bit-cast nesting, and cross-unit mismatch.
-- **False positives:** zero, on seven legitimate programs that compile and
-  run, covering `optional`, `vector` with `sort`, `map`, byte hashing through
-  a `const` view, serialization through `verbs::to` and `fwrite`, and
-  `constinit` statics.
-- **Routed elsewhere:** the remaining counterexamples (self-initialization,
-  unchecked `*`, arithmetic edge cases) go to vlib rules and the boundary.
+There are two prototypes, both LibTooling on the pinned Clang, preserved in
+context/prototypes/:
+- **escape-lane/**, 689 lines: rule v1;
+- **escape-v2/**, 725 lines: this rule.
 
-The prototype is evidence for the rule, not the implementation. The
-implementation is written red-first against §10.2.
+Results for v2:
+- **Counterexamples:** 48 of 48 resolved; 43 caught and 5 correctly clean.
+  - They cover all first-tribunal escape cases, ChatGPT F02–F06 and F12, the
+    MiMo `const void*` variant, and 25 of the lane's own attacks.
+  - The attacks include `uintptr_t`, pointer `bit_cast`, member pointers,
+    `shared_ptr<void>`, `sscanf`/`va_arg` destinations and
+    `__builtin_assume_aligned`.
+  - Each bypass was first confirmed to forge its value under ASan and UBSan
+    at `-O2`.
+- **False escapes:** zero, on 13 legitimate programs that compile and run.
+  They cover `optional`, `variant`, `expected`, `tuple`, `vector` with `sort`
+  and ranges, the ordered and unordered containers with vlib keys and
+  `std::hash`, `array`, `span` of const, `std::format`, `atomic<E>`, smart
+  pointers, `std::function`, `deque`, `list`, `any`, and whole-object
+  `memcpy`. A polymorphic `dynamic_cast` downcast into a vlib-containing
+  class is not yet a case; the plan adds it.
+- **Cost:** the same as v1, about 1.0 s user time per libc++-heavy unit,
+  against 0.55 s for `clang -fsyntax-only`.
+- **Holes the boundary excludes** (lane §5):
+  - a call through a reinterpreted function pointer (UB, rule 8);
+  - coroutine-frame offset arithmetic (rule 8);
+  - an allocator or pmr byte buffer written while it backs a live vlib
+    object. Rule 3 now forbids keeping that writable alias.
+- **`start_lifetime_as`** is in rule 2, but it is not yet in libc++ 23.1.2.
+
+The prototypes are evidence for the rule, not the implementation. The
+implementation is written red-first against §10.2, and every case above
+becomes a case file.
 
 ## 5. Discovery: not in the basics
 
@@ -627,9 +710,8 @@ Other cases:
 - **Modules:** a unit that imports a module is `outside` (bead
   verbs-de3.31).
 - **Compile errors suspend the report** (ChatGPT F08, MiMo F3). A unit
-  that compiled before and now fails may hold an escape, and a
-  type-erasing escape voids claims program-wide (§4.8). So no claim is
-  current. The run then does three things:
+  that compiled before and now fails may hold an escape, and an escape
+  voids claims in every unit (§4.8). So no claim is current. The run then does three things:
   - it prints `+` lines for escapes found in the units that did compile,
     since those are real;
   - it prints one `! claims suspended: N units do not compile` line, with

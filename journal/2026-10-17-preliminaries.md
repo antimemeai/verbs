@@ -334,3 +334,40 @@ requirement. Tier E alone (3/3 on blackbird) is the cheap follow-up.
 
 Artifacts: context/prototypes/enum-lane/ (sources, rules, labels, Jev
 outputs, excerpts; regenerable facts dropped, 488 MB).
+
+## Escape-v2 lane (returned): provenance as type
+
+papers/2026-10-17-escape-allowlist-v2.md; prototype in
+context/prototypes/escape-v2/ (725 lines).
+
+**The rule.**
+- **vpr notion.** Two transitive notions. The new one is the vlib-pointer
+  (vpr), which does not stop at pointers. A vpr converts only to its own
+  type, a cv-added form, or a class in the same hierarchy. Every other
+  conversion out of or into a vpr is an escape.
+- **Read-only sink.** The one exception: a const pointer passed directly
+  to a library function with a const pointer parameter and a non-pointer
+  return.
+- **Raw writes.** Allowed only as a whole-object same-type copy of
+  constant-multiple length.
+- **Library.** A closed list of library entry points whose specified effect
+  exposes bytes. libc++ internals are not scanned; measured, that needs an
+  open allowlist of benign internals.
+
+**Results.** 48/48 counterexamples resolved (43 caught, 5 correctly clean).
+Zero false escapes on 13 legitimate libc++-heavy programs. Same cost as v1.
+
+**Adjudications.**
+- *Erased-sink attribution.* The lane's "erased sink voids the unit" was
+  rejected. Every escape is a conversion at a point where the source type
+  is known, so attribution is the type's leaves, program-wide. Only an asm
+  memory clobber with no vlib operand voids everything.
+- *Rule direction.* The lane worded the rule outgoing-only. Its prototype
+  also flags conversions *into* a vpr, so the spec states both directions.
+- *Possible false escape.* The prototype flags a polymorphic `dynamic_cast`
+  downcast into a vlib-containing class (CK_Dynamic, !fromVpr && toVpr).
+  The spec allows hierarchy casts, and the plan adds a legitimate case.
+- *Rule 3.* Rule 3 gains the lane's sentence: no second writable alias of
+  the storage, including allocator buffers (the pmr hole).
+
+No [lane] markers remain.
