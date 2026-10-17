@@ -7,7 +7,7 @@ source preparation are separate states. Do not publish placeholder-only packages
 | --- | --- | --- |
 | GitHub | `antimemeai/verbs` | Public personal repository created |
 | Rust / crates.io | `verbs` | Published 0.1.0; public API confirms the version and repository |
-| Python / PyPI | `pverbs` | Operator-selected name; wheel/sdist installation checks pass; publication next |
+| Python / PyPI | `pverbs` | Published 0.1.0; wheel/sdist hashes confirmed by public API; fresh pip installation passes |
 | npm | `jsverbs` | API returned 404; package prepared; npm login required |
 | JSR | `@antimemeai/verbs` | Source prepared; scope/package creation and authentication required |
 | ConanCenter | `verbs` | Recipe path absent; local package creation and consumer test pass, central submission/review required |
@@ -34,6 +34,9 @@ written into this repository or persistent Cargo configuration.
 
 Python: pverbs is the operator-selected distribution and import name. pyverbs
 remains an unrelated [rdma-core binding](https://pypi.org/project/pyverbs/).
+[pverbs 0.1.0](https://pypi.org/project/pverbs/0.1.0/) is published with a wheel
+and source distribution. `pip install pverbs` installs it; `from pverbs import
+check` imports the API. Both published hashes match the tested local artifacts.
 Run scripts/check-python-package.sh to build a wheel and sdist and test isolated
 installations on Python 3.10. Setuptools is the discussed build-only backend;
 the installed module has no runtime dependencies. `python scripts/publish.py
@@ -62,7 +65,7 @@ packages/ocaml/verbs.opam supports local source development.
 See packaging/README.md for submission drafts. The public source tag is v0.1.0.
 JavaScript tests and npm packaging pass. Deno type checking, JSR public-type
 checking, and JSR publication dry run pass. JSR publication still needs account
-authorization. Rust publication has succeeded; the remaining registry states
+authorization. Rust and Python publication have succeeded; the remaining registry states
 are listed individually above.
 
 ## Additional provisional footprints

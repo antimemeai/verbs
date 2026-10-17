@@ -47,3 +47,23 @@ runtime dependencies. The existing contract checks pass against both installed
 copies, with source-directory imports excluded. Metadata version, py.typed
 presence, and absence of runtime requirements were also checked. Publication
 is next; do not claim the PyPI name until its API confirms it.
+
+uv publish successfully uploaded pverbs 0.1.0 to PyPI using the pypi key from
+the workspace file. The public version JSON confirms the name, version,
+requires-python >=3.10, no runtime requirements, and both wheel/sdist files.
+Each published SHA256 equals the tested artifact's local SHA256.
+
+A fresh isolated pip installation from https://pypi.org/simple succeeded,
+followed by import pverbs, metadata version validation, and a named constraint
+check. uv's index resolver initially reported the new package missing even
+while direct HTML/JSON simple-index requests returned both artifacts. The
+cause was not established; do not infer that the package was unpublished or
+that every client has the same view. Standard pip installation is confirmed.
+
+Both requested names are now published:
+https://pypi.org/project/pverbs/0.1.0/
+https://crates.io/crates/verbs/0.1.0
+
+No credential was displayed, stored in the repository, or written into user
+Cargo configuration. Updated the publication tracker and current registry
+status to remove the resolved account/token blockers for these two packages.
