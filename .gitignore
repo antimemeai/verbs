@@ -1,0 +1,13 @@
+*.pdf
+/quarantine/
+/context/
+/target/
+**/build/
+**/dist/
+**/__pycache__/
+*.pyc
+*.egg-info/
+*.tgz
+.DS_Store
+.env
+.venv/
