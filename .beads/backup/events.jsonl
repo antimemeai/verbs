@@ -39,3 +39,22 @@
 {"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:10:04Z","event_type":"created","id":39,"issue_id":"verbs-4ox","new_value":"","old_value":""}
 {"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:10:04Z","event_type":"label_added","id":40,"issue_id":"verbs-4ox","new_value":null,"old_value":null}
 {"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:10:04Z","event_type":"created","id":41,"issue_id":"verbs-b4x","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:00Z","event_type":"created","id":42,"issue_id":"verbs-de3.17","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:00Z","event_type":"label_added","id":43,"issue_id":"verbs-de3.17","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:00Z","event_type":"created","id":44,"issue_id":"verbs-de3.18","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: simplification","created_at":"2026-10-17T14:21:01Z","event_type":"label_added","id":45,"issue_id":"verbs-de3.18","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:01Z","event_type":"label_added","id":46,"issue_id":"verbs-de3.18","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:01Z","event_type":"created","id":47,"issue_id":"verbs-de3.19","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:01Z","event_type":"label_added","id":48,"issue_id":"verbs-de3.19","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:01Z","event_type":"created","id":49,"issue_id":"verbs-de3.20","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:01Z","event_type":"label_added","id":50,"issue_id":"verbs-de3.20","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:02Z","event_type":"created","id":51,"issue_id":"verbs-de3.21","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:02Z","event_type":"label_added","id":52,"issue_id":"verbs-de3.21","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:02Z","event_type":"created","id":53,"issue_id":"verbs-de3.22","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:02Z","event_type":"label_added","id":54,"issue_id":"verbs-de3.22","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:03Z","event_type":"created","id":55,"issue_id":"verbs-de3.23","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:03Z","event_type":"label_added","id":56,"issue_id":"verbs-de3.23","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:03Z","event_type":"created","id":57,"issue_id":"verbs-de3.24","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:03Z","event_type":"label_added","id":58,"issue_id":"verbs-de3.24","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T14:21:04Z","event_type":"created","id":59,"issue_id":"verbs-de3.25","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T14:21:04Z","event_type":"label_added","id":60,"issue_id":"verbs-de3.25","new_value":null,"old_value":null}
