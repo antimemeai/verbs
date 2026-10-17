@@ -59,3 +59,30 @@ implementations. Manifest and shopping-list entries merge on their return.
   "Postcondition captures", May 2026, proposes it post-C++26; PDF in papers/).
   Design direction under discussion: old values exist only inside the
   mechanism judging a transformation, never as state in user objects.
+
+## Scope of invariant claims
+
+Outcome of discussion on multi-object relations, re-entrancy, and concurrency.
+Guiding stance: prefer a smaller domain with honest claims over contortions
+for flexibility nobody has asked for. Programs outside the domain are
+reported as "outside the claim", distinct from "unknown"; the subset is
+neither hidden nor celebrated.
+
+- Ownership: every invariant has exactly one owning subject and mentions only
+  state that subject owns exclusively (value members, unique ownership).
+  Mutation happens only through the owner's own operations, or through
+  owner-issued handles whose operations are the owner's. A handle like that is
+  a delegated transformation, not a leak. A raw mutable reference or pointer to
+  invariant state is a leak. Relations without a single owner, of any arity
+  including peer pairs, are refused with a structural suggestion (move both
+  sides under one owner) or recorded as open_domain with rationale.
+  `shared_ptr` co-ownership cannot host an invariant.
+- Re-entrancy: no calls out to unowned code while the owner's invariant is
+  temporarily broken. Restore first, then call out. This replaces modelling
+  callback re-entry as a transformation kind.
+- Concurrency: an invariant claim requires that the owner's transformations
+  are serialized in a way the checker sees: thread confinement, or a
+  capability held for every mutation (TSA GUARDED_BY, scope "while holding
+  C"). Lock-free shared mutable state gets no invariant claim. No
+  rely/guarantee machinery. Memory-ordering correctness is outside verbs'
+  claims.
