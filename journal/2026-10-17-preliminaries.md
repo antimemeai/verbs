@@ -224,3 +224,24 @@ would make verbs::to accept 0 from the wire. Instead VERBS_UNSET(name) names
 the zero state while excluding it from ingress; VERBS_ENUM without a 0 is a
 compile error. Non-constinit statics moved from boundary assumption to
 escape; compile-command argument changes are silencing lines.
+
+## Jev coverage audit of revision 2
+
+papers/2026-10-17-jev-coverage-audit.md. One Jev Choice per tribunal finding
+(92). Spec as state; ~1.16M input tokens. Jev said 73 resolved or removed,
+6 pending §5, 13 partial/open. Re-read by hand. Most `partial` calls were
+multi-part findings answered across several sections; three were real:
+- D25: no exit status for compile errors, no rule for never-compiled units.
+  Fixed in §6.2.
+- soundness m3: `&D` passed to a function defined in no analyzed unit left a
+  false `holds`. §4.4 now marks the type `outside`, naming the declaration.
+- checks M11: the first-run full scan and cross-process job slots were
+  unstated. Fixed in §6.6, plus bead verbs-de3.34.
+Lesson: the probability mass off `resolved` was the signal (m3 was labelled
+`resolved` at confidence 0.29), not the selected key.
+
+Sysroot note from the blackbird session: an autonomous test agent repointed
+/opt/homebrew/etc/clang/arm64-apple-darwin25.cfg to the Xcode SDK from about
+16:38 until it was restored (mtime 16:39:34). No verbs probe ran in that
+window. The enum lane's clang extraction finished by 15:51, and the earlier
+lanes before that.

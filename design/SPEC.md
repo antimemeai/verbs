@@ -275,8 +275,9 @@ Subscripts, stores into `uint32_t` and `switch` therefore need no cast under
   the store. Out of range, it throws `verbs::violation` and the object is
   unchanged.
 - This is the accumulator rule (core literature §7, Wuffs): plain
-  `x = x + y` does not compile, and its deleted conversion names `+=` and
-  `verbs::to`.
+  `x = x + y` does not compile. The deleted narrowing conversion has one
+  message for every context (assignment, initialization, `return`), naming
+  both `verbs::to<B>(x)` and `+=`/`-=` on an accumulator (ergonomics m4).
 
 **No `++` or `--`.** Loops use `verbs::upto(n)` (ergonomics S2, B1). For `n`
 of type `Bounded<L, N>` with `L >= 0`, it yields `Bounded<0, N-1>` values.
@@ -391,6 +392,18 @@ makes them sound by construction.
     It reports a name with two or more signatures where any one is
     vlib-containing: `extern` type confusion, or an ODR violation (soundness
     B6).
+
+**Unanalyzed definitions.** The same records say which functions and
+variables some analyzed unit defines. Code defined in no analyzed unit can
+write anything it can reach, so rule 7 is checked here, not assumed
+(soundness m3). A vlib-containing type has all its claims `outside` when one
+of these is declared in analyzed code but defined in no analyzed unit:
+- a function that takes or returns a non-const pointer or reference to the
+  type;
+- a variable of the type.
+
+The report names the declaration. A template instantiated only in unanalyzed
+units is the same case.
 
 ### 4.5 Scope
 
@@ -535,8 +548,13 @@ Other cases:
 - **Modules:** a unit that imports a module is `outside` (bead
   verbs-de3.31).
 - **Compile errors:** a unit that fails to compile keeps its previous facts.
-  It is listed `not refreshed (compile errors)`, and evidence that depends on
-  it prints no `-` lines (checks M10).
+  It prints `! not refreshed (compile errors)`, and evidence that depends on
+  it prints no `-` lines (checks M10). This does not change the exit status;
+  exit 2 means no unit could be checked at all.
+- **Never compiled:** a unit that has never compiled under the pinned Clang
+  has no facts. Its claims are `outside: does not compile under the pinned
+  Clang`, printed once when the unit first appears, not on every edit
+  (doctrine D25).
 - **Unincluded headers:** a header in `--changed` that no unit includes prints
   `! unanalyzed: no unit includes <path>` (checks m3).
 - **Paths** are canonicalized with `realpath` on both sides (checks m4).
@@ -614,6 +632,12 @@ Rules:
   budget, plus `~ N units pending (claims for them not refreshed)`. Pending
   units stay stale and finish on the next run. Nothing pending is reported
   as resolved.
+- **First runs:** the first check in a new build directory, and any run
+  after a facts-format change, is a full scan, about 46 s on 16 idle cores.
+  It is over budget by design and reports through the pending line.
+- **Concurrency:** verbs processes in different build directories do not
+  share job slots, so several agents on a loaded host slow each other (bead
+  verbs-de3.34).
 - **Gate:** enabling the check in Blackbird's hook is gated on this budget,
   measured on blackbird (bead verbs-de3.14), alongside the precision gate
   (§10.3).
@@ -827,5 +851,6 @@ The plan sequences these; listed here so the spec states what "done" means.
 | C++ modules in analyzed units | verbs-de3.31 |
 | Facts shared across worktrees (constructive traces) | verbs-de3.32 |
 | Points-to narrowing of escape attribution | verbs-de3.33 |
+| Shared job slots across concurrent verbs processes | verbs-de3.34 |
 | Mull on the pinned Clang | verbs-b4x |
 | Rust phase | verbs-4ox |
