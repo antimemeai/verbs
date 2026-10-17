@@ -1,9 +1,0 @@
-{
-  "name": "@antimeme/verbs",
-  "version": "0.1.0",
-  "license": "MIT",
-  "exports": "./mod.ts",
-  "publish": {
-    "include": ["mod.ts", "index.js", "index.d.ts", "README.md", "LICENSE*", "jsr.json"]
-  }
-}

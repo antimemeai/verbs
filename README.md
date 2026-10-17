@@ -1,46 +1,35 @@
 # Verbs
 
-Verbs makes constraints explicit so agents can write code whose behavior is
-easier to check. The project aims to enrich code with constraints, improve
-verifiability, and make doing the right thing easier.
+Verbs aims to enrich code with explicit constraints so agents can make and
+check stronger claims about their work. It targets C++ (Clang, C++23) first and
+Rust later. Each language gets its strongest native realization; there is no
+cross-language parity layer.
 
-The initial implementation is deliberately small: a named predicate check.
+The project is in research and design. design/verbs-design-brief.md is the
+founding orientation input, not a settled design. Decisions are recorded in
+journal/; literature and lane reports are in papers/.
+
+## What exists today
+
+A placeholder runtime check, `check(name, value, predicate)`, in Rust (repository
+root) and C++17 (`packages/cpp`). It calls the predicate once, returns the
+original value on success, reports only the constraint name on failure, and
+propagates predicate errors. It checks one value at one moment; it establishes
+no persistent invariant. The intended design replaces it.
 
 ```rust
 let retries = verbs::check("bounded retries", 3, |n| (1..=5).contains(n))?;
 ```
 
-`check(name, value, predicate)` calls the predicate exactly once. On success it
-returns the original value. On failure it reports the constraint name without
-embedding the potentially sensitive value. Predicate errors propagate.
-Rust, OCaml, and Erlang return a result; the other implementations throw an
-exception.
+`./scripts/check.sh` runs the Rust tests, rustfmt, clippy, and the C++ contract
+test. There are no runtime dependencies.
 
-This checks a value at a moment in time. It does not establish a persistent
-refinement type, prove a predicate correct, or verify an entire program. Mutable
-values can cease to satisfy their constraints after a successful check.
+## Releases
 
-Source surfaces: Rust at the repository root, JavaScript and TypeScript in
-`packages/js`, Python in `packages/python`, C++17 in `packages/cpp`, and OCaml in
-`packages/ocaml`. Registry names and publication status are in REGISTRIES.md.
-The public API is experimental in 0.1.0.
-
-Additional provisional footprints live in `packages/php`, `packages/dart`,
-`packages/ruby`, `packages/erlang`, `packages/dotnet`, and `packages/lua`. The root composer.json
-describes the PHP package for Packagist. Ruby uses the provisional gem name
-`verbs-agent` and Erlang uses `verbs_agent` because `verbs` is taken in both
-registries. Rust's verbs crate, Python's pverbs, LuaRocks' verbs, and JSR's
-@antimeme/verbs are published;
-see REGISTRIES.md for the other
-publication states.
-
-Run `./scripts/check.sh` to check the language implementations with local tools.
-There are no runtime dependencies.
-
-Run `./scripts/check-footprints.sh` for the additional language checks, or
-pass individual names such as `ruby` or `dotnet` when only those tools are
-installed. The Package footprints workflow runs their checks and available
-package dry runs without publishing. `./scripts/check-registries.py` rechecks
-their public registry endpoints.
+These 0.1.0 releases remain up as placeholders: Rust `verbs` (crates.io),
+Python `pverbs` (PyPI), `@antimeme/verbs` (JSR), and `verbs` 0.1.0-1
+(LuaRocks). Non-C++/Rust sources were moved out of the tracked tree; they
+remain in history at commit 700f1e8 (see quarantine-manifest.md).
+Registry notes and release tooling are parked in utils/.
 
 Licensed under the MIT license.
