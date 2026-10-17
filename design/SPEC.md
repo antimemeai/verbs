@@ -16,9 +16,9 @@ edge (§14).
 Findings are cited by report and ID: soundness B1, checks M7, doctrine D3,
 ergonomics S2.
 
-Marked **[lane]**: text that the escape-allowlist lane
-(papers/2026-10-17-escape-allowlist.md) or the enum-candidate lane
-(papers/2026-10-17-enum-candidate-redesign.md) replaces when it returns.
+Marked **[lane]**: text that the enum-candidate lane
+(papers/2026-10-17-enum-candidate-redesign.md) replaces when it returns. The
+escape-allowlist lane has returned and §4 is its rule.
 
 ---
 
@@ -76,7 +76,7 @@ so the treatment is a **migration** (doctrine D1).
     (journal.cpp:278 hard-codes `{1,2,4,65535}` apart from `FrameKind`);
   - an enumerator added without a matching ingress;
   - a raw integer-to-enum cast added beside `verbs::to`;
-  - a vlib type downgraded to a raw integer (§4.3);
+  - a vlib type downgraded to a raw integer (§4.7);
   - writes that bypass the representation (§4.1).
 - **Expected result, stated before the experiment:** a measurable effect on
   those seeded classes and on agent-introduced faults at migrated seams, and
@@ -105,14 +105,14 @@ Each examined declaration is in exactly one state:
 
 | State | Meaning |
 |---|---|
-| `holds` | D's type carries P, its translation unit meets the claim boundary, and no escape affects D's type (§4.4). |
+| `holds` | D's type carries P, its translation unit meets the claim boundary, and no escape affects D's type (§4.8). |
 | `finding` | An escape, a weakening or a silencing affects D, with evidence. |
 | `decided` | A decision (§7) covers a finding on D. |
 | `outside` | D is outside the claim boundary. The report names the rule that excludes it. |
 
 There is no `unknown` state. Mechanism sets and runtime-check counts are not
 kept, because nothing reads them (doctrine D7). The set of `holds` claims is
-kept only as the baseline that detects lost claims (§4.3).
+kept only as the baseline that detects lost claims (§4.7).
 
 ### 2.1 Claim boundary
 
@@ -134,19 +134,24 @@ Every claim holds only under these rules.
 5. **No call to unowned code happens while an invariant is temporarily
    broken.** vlib never leaves one broken.
 6. **Single-state predicates only.**
-7. **The analyzed code is the preprocessed code of the compilation database's
-   units under its configuration.** A unit outside the database can hold
-   escapes verbs never saw. The report names the database.
-8. **No undefined behaviour outside vlib**, in particular no out-of-bounds or
-   out-of-lifetime access. verbs does not check this. Sanitizers and library
-   hardening are the mechanisms (soundness M1).
+7. **The analyzed code is the preprocessed code of exactly the units in the
+   named compilation database, under their exact flags.** Code outside that
+   set is `outside`, not `holds`: a unit, header configuration, module or
+   command-line macro, or platform-guarded code not compiled here. The report
+   names the database. A change to any unit's compile command prints as a
+   silencing `!` line (§4.6).
+8. **No undefined behaviour outside vlib**: no out-of-bounds or
+   out-of-lifetime access, and no read of an uninitialized or moved-from
+   object. verbs does not check this (soundness M1). The mechanisms that
+   check it are rules 9–10, and the sanitizer runs of §10 (ASan, UBSan,
+   `-fsanitize=bounds`).
 9. **(read) Library hardening is at least FAST**
    (`_LIBCPP_HARDENING_MODE_FAST`), so `*` on an empty `std::optional`
    traps rather than producing an unchecked value (soundness M2, doctrine D13).
 10. **(read) `-Werror=switch-enum` and `-Werror=uninitialized` are in effect**
     (soundness M3).
-11. **Static and thread-storage vlib-containing objects are `constinit`**, or
-    their claims are `outside` (soundness M3).
+A vlib-containing object with static or thread storage that is not
+`constinit` is an escape (§4.3 rule 12), not a boundary assumption.
 
 ## 3. vlib
 
@@ -187,7 +192,7 @@ A **verbs enum** is an enumeration declared with `VERBS_ENUM`. Plain
 guarded casts are not findings on day one (checks M3, doctrine D22).
 
 ```cpp
-VERBS_ENUM(PhaseKind, std::uint8_t,
+VERBS_ENUM(PhaseKind, std::uint8_t, VERBS_UNSET(none),
     assembly = 1, retry_group, attempt, retry_wait, adapter, decode,
     preview_feed, presentation, receipt, acceptance, colleague_prepare,
     colleague_transport, sse_event, preview_event)
@@ -200,11 +205,20 @@ VERBS_ENUM(PhaseKind, std::uint8_t,
 - **Ingress:** `verbs::to<PhaseKind>(raw)` accepts exactly the listed
   values. `verbs::to<PhaseKind>(std::string_view)` accepts exactly the names.
 - **Egress:** `std::to_underlying`, and `verbs::name(e)`.
-- **The zero rule.** A verbs enum whose values exclude 0 can still be made to
-  hold 0 by value- or zero-initialization: `E{}`, `Node{}`,
-  `map::operator[]`, static storage. Every such initialization outside vlib
-  is an escape (§4, soundness M4, ergonomics M7). An enum that does list 0
-  has no such escape.
+- **The zero state is named.** Value- and zero-initialization (`E{}`,
+  `Node{}`, `map::operator[]`, `vector(n)`, static storage) always produce 0,
+  and no check can see every such site (soundness M4, ergonomics M7). So every
+  verbs enum names its 0:
+  - either 0 is a real domain value (`idle = 0`), which `verbs::to` accepts;
+  - or the author writes `VERBS_UNSET(none)`, an enumerator equal to 0 that
+    `verbs::to` rejects.
+
+  `VERBS_ENUM` without a 0 enumerator is a compile error naming
+  `VERBS_UNSET`. A value-initialized enum therefore always holds a named
+  state, so the `in{}` claim includes `none`. `-Werror=switch-enum` makes
+  every switch handle it, and wire input can never produce it. This keeps the
+  domain honest: the escape-allowlist lane's alternative (require any 0
+  enumerator) would make `verbs::to` accept 0 as valid input.
 - **Bit-fields** of a verbs enum narrower than its value range are an escape
   (soundness M4).
 - **Exhaustiveness** comes from rule 10 (`-Werror=switch-enum`).
@@ -285,75 +299,160 @@ first migration. `Bounded` lands when a named blackbird declaration needs it:
 candidates are the limit and count fields such as `limits_.max_causal_depth`.
 If the plan finds none, `Bounded` moves to a bead.
 
-## 4. The escape check **[lane]**
+## 4. The escape check
 
-> **[lane] escape-allowlist.** This section states the direction the
-> tribunal converged on. The lane's rule text, its grounding in Clang's AST
-> and its confusion matrix replace §4.1–4.2.
+Every `holds` claim rests on one closed guarantee (papers/2026-10-17-escape-allowlist.md,
+replacing the first draft's deny-list, which two tribunals broke):
 
-### 4.1 Representation escapes (direction)
+> **The object representation of a vlib-containing object (§2) is written or
+> created only by (a) vlib's own members and factories (`verbs::to`,
+> `verbs::k`, vlib arithmetic), or (b) a copy or move from a valid object of
+> the same type.** Every other write or creation of those bytes, and every
+> loss of the static type of a pointer or reference to such an object, is an
+> **escape**.
 
-The rule is an allowlist judged on meaning, not a list of spellings
-(soundness B1–B7, checks B3, M1). Outside vlib's own headers, a
-vlib-containing object may be:
-- created by vlib's factories, by `verbs::k`, or by vlib arithmetic;
-- copied or moved from a valid object of the same type, including through
-  `memcpy`, `std::copy` or `bit_cast` *from a same-type source*;
-- read, including through a `const` byte view.
+This is an allowlist, matched on Clang's AST with full type information.
+Every spelling of a construct reduces to the same AST node, so the spelling
+an agent chooses does not matter. For example, `T*`→`void*` is
+`ImplicitCastExpr <BitCast>`, and every enum-ingress spelling is one
+`CK_IntegralCast` (OperationKinds.def:61, :199; the lane's §2).
 
-Everything else that writes, creates or reinterprets such an object is an
-escape. The tribunal's counterexamples set the lower bar for what the rule
-must catch:
-- **untyped pointers:** conversion of a pointer to vlib storage into a
-  non-const untyped pointer, implicit or explicit (`fread`, `read`,
-  placement new, `start_lifetime_as`, `launder`, `void*` helpers);
-- **byte-level writes:** unions and bit-casts at any nesting depth;
-- **enum value creation:** integral conversions into a verbs enum, by any
-  spelling including list-initialization; value- or zero-initialization
-  under the zero rule; narrow bit-fields;
-- **private access:** declarations or specializations in `namespace verbs`
-  written outside vlib, except `VERBS_*` expansions; naming a private vlib
-  member, including through explicit instantiation; keyword macros
-  (`#define private public`, from source, `-D` or `-include`);
-- **`asm`:** statements with vlib-containing outputs, or a `"memory"`
-  clobber;
-- **cross-unit mismatch:** an external-linkage name declared with different
-  types or definitions in two units, where one is vlib-containing (soundness
-  B6). This is a cross-unit fact (§6.3).
+In a uninstantiated template the check cannot judge the code, so it is "not
+analyzed; no claim depends on it" (checks m1). It is never a false escape and
+never a false `holds`.
 
-Library internals are judged at the typed API boundary, never inside the
-library. Which files count as library is decided by verbs' path rule, never
-by Clang's system-header flag (checks M1, soundness M9).
+The vlib types in the basics are `Bounded` specializations and verbs enums
+(§3.2). Recursion through vlib-containing types stops at pointers and
+references.
 
-### 4.2 Silencing escapes
+### 4.1 Representation and type erasure
 
-verbs honours no suppression comment; only decisions (§7) silence it (checks
-M2). These are silencing findings:
-- a change to the diagnostic state of a warning the boundary relies on
-  (rules 9–10), by any pragma spelling (`clang`, `GCC`, `_Pragma`);
-- `#pragma clang system_header` or a line marker in a repository file;
-- a repository include directory moved to `-isystem`;
-- a compile-flag change that removes rule 9 or 10 (`-Wno-*`, `-w`, a removed
-  `-Werror=`);
-- `[[assume]]`, `__builtin_assume` or `__builtin_unreachable` outside vlib;
-- a change to verbs' path rule (§6.3).
+1. **Type erasure.** Converting a pointer or reference to a vlib-containing
+   object to `void*`, `char*`, `unsigned char*`, `std::byte*`, or any
+   unrelated pointer type, by any spelling, implicit included. This covers
+   `fread`, `read`, `recv`, the destination of `memcpy`, and user `void*`
+   helpers.
+   **Read-only exception:** a conversion whose target pointee is `const` is a
+   read. That admits hashing, printing, `fwrite` and `write`.
+2. **Re-typing.** Converting `void*` or a byte pointer back to a pointer to a
+   vlib-containing type. This includes `std::launder`,
+   `std::start_lifetime_as`, `std::construct_at`, and placement `new` over
+   storage that holds a vlib object.
+3. **Bit reinterpretation.** `std::bit_cast`, `__builtin_bit_cast`, and
+   `reinterpret_cast` of references, whose source or result is
+   vlib-containing.
+4. **Raw byte writes.** `memcpy`, `memmove`, `memset` and their builtins into
+   a vlib-containing destination. The exception is a `memcpy` or `memmove`
+   whose source is an object of the same type; trivially copyable relocation
+   is a copy.
+5. **Unions.** A user-declared union with a vlib-containing member, at any
+   depth.
+6. **`asm`.** An `asm` statement with a vlib-containing operand, or any
+   `"memory"` clobber.
 
-### 4.3 Weakening
+### 4.2 Enums
+
+7. **Enum ingress.** Any integral-to-enum or floating-to-enum conversion into
+   a verbs enum, outside `verbs::to`. This covers `static_cast`, C-style,
+   functional and list-initialization spellings, including `Mode m{raw}`.
+8. **Narrow bit-field.** A bit-field of verbs-enum type too narrow to hold
+   every enumerator value.
+
+Value- and zero-initialization need no check. The named zero state (§3.2)
+makes them sound by construction.
+
+### 4.3 Encapsulation and the build
+
+9. **verbs specializations.** Any of the following whose spelling location is
+   outside vlib's headers, except `VERBS_*` macro expansions:
+   - any declaration in `namespace verbs`;
+   - any explicit or partial specialization, or explicit instantiation, of a
+     `verbs::` template (class, member or variable).
+10. **Private-member theft.** An explicit instantiation whose template
+    arguments name a private or protected vlib member. Explicit
+    instantiation is exempt from access checking ([temp.spec.general]/6).
+    Naming such a member anywhere else is already a compile error.
+11. **Keyword macros.** A `#define` or `#undef` of `private`, `protected`,
+    `public`, `class`, `struct`, `const` or `noexcept`, in source, through
+    `-D`, or in an `-include` forced header. The `-D` form is read from the
+    unit's recorded compile command (§6.2), not the AST.
+12. **Non-`constinit` statics.** A vlib-containing object with static or
+    thread storage that is not `constinit`. Static zero-initialization is
+    observable before dynamic initialization (soundness M3).
+
+### 4.4 Cross-unit mismatch
+
+13. **What is recorded.** Per unit, for every external-linkage variable and
+    function, verbs records its qualified name, canonical type, and whether
+    it is vlib-containing. For every external-linkage class definition, it
+    records the qualified name, the concatenated canonical field-type
+    signature, and the flag.
+14. **What is flagged.** The cross-unit step groups these by kind and name.
+    It reports a name with two or more signatures where any one is
+    vlib-containing: `extern` type confusion, or an ODR violation (soundness
+    B6).
+
+### 4.5 Scope
+
+Scope is decided by repository path through verbs' path rule (§6.3), never by
+Clang's system-header flag.
+- A repository file marked `#pragma clang system_header`, or reached through
+  `-isystem`, cannot hide an escape.
+- libc++ and SDK internals are out of scope and never reported. Examples are
+  `optional`'s union storage and `vector`'s relocation `memcpy`, which are
+  judged at their typed API.
+
+### 4.6 Silencing
+
+verbs honours no suppression comment; only a decision (§7) silences a finding
+(checks M2). These are silencing findings, printed `!`:
+- **Warnings the boundary needs.** A change to the diagnostic state of a
+  warning in rules 9–10, by any pragma spelling (`clang`, `GCC`, `_Pragma`).
+- **Hiding files.** `#pragma clang system_header`, or a line marker, in a
+  repository file.
+- **Compile commands.** Any change to a unit's `-D`, `-U`, `-std`, `-W`,
+  `-w`, `-isystem`, `-include` or hardening arguments. verbs records each
+  unit's full argument vector and diffs it per run.
+- **Assumptions.** `[[assume]]`, `__builtin_assume` or `__builtin_unreachable`
+  outside vlib.
+- **Scope.** A change to verbs' path rule.
+
+### 4.7 Weakening
 
 A declaration that had a `holds` claim in the previous report and now has
-none is a **lost claim** (doctrine D2, checks M2). Examples: its type changed
-to a raw integer, its `Bounded` range widened, or its verbs enum gained a
-value. A lost claim prints `!`, even when the change is intended, so that a
-reader sees it.
+none is a **lost claim** (doctrine D2, checks M2). For example:
+- its type changed to a raw integer;
+- its `Bounded` range widened;
+- its verbs enum gained a value.
 
-### 4.4 Attribution
+A lost claim prints `!` even when the change is intended, so that a reader
+sees it.
 
-Finding the exact declaration an escape touches needs alias analysis, which
-the basics do not have. So an escape voids the claims of every declaration of
-the affected vlib-containing type, program-wide. If the type cannot be
-determined, as with a `void*` sink, it voids every claim in its translation
-unit (soundness M7). Escapes are rare, so this coarseness costs little.
-Narrowing it needs points-to analysis (bead verbs-de3.33).
+### 4.8 Attribution
+
+An escape voids the claims of every declaration of the affected
+vlib-containing type, program-wide. When the sink's type is erased, it voids
+every claim in the unit. Finding the exact declaration needs points-to
+analysis (soundness M7; bead verbs-de3.33). The coarse rule never yields a
+false `holds`; it costs only precision, and escapes are rare.
+
+### 4.9 Evidence
+
+The lane's prototype is a 689-line LibTooling tool, preserved in
+context/prototypes/escape-lane/. Results:
+- **Bypasses caught:** every first-tribunal bypass that belongs to the escape
+  check, including fread, launder, all five enum list-init spellings,
+  specializations, private-member theft, keyword macros, asm, union and
+  bit-cast nesting, and cross-unit mismatch.
+- **False positives:** zero, on seven legitimate programs that compile and
+  run, covering `optional`, `vector` with `sort`, `map`, byte hashing through
+  a `const` view, serialization through `verbs::to` and `fwrite`, and
+  `constinit` statics.
+- **Routed elsewhere:** the remaining counterexamples (self-initialization,
+  unchecked `*`, arithmetic edge cases) go to vlib rules and the boundary.
+
+The prototype is evidence for the rule, not the implementation. The
+implementation is written red-first against §10.2.
 
 ## 5. Enum candidates **[lane]**
 
@@ -426,7 +525,7 @@ On every run:
    milliseconds. A unit whose trace mismatches, or whose negative probe now
    finds a file, is stale.
 3. **Re-extract** every stale unit. `--changed` only orders the work.
-4. **Cross-unit evaluation:** declaration and definition mismatches (§4.1),
+4. **Cross-unit evaluation:** declaration and definition mismatches (§4.4),
    and enum candidates (§5).
 5. **Delta** against the previous report (§6.5).
 
@@ -483,7 +582,7 @@ verbs · 3 units re-checked · 1.8 s · build/debug
     this looks like a closed domain; if it is, declare it with VERBS_ENUM and give the full domain and names
 claims assume: no unwind mid-mutation · no moved-from use · single owner · one thread ·
   no call-out while broken · single-state · analyzed code is this database's units ·
-  no UB outside vlib · hardening ≥ FAST · switch-enum and uninitialized are errors · static vlib objects constinit
+  no UB outside vlib · hardening ≥ FAST · switch-enum and uninitialized are errors
 ```
 
 | Prefix | Meaning |
@@ -681,8 +780,9 @@ supports the pinned Clang (verbs-b4x). Source mutants cover compile-time logic
 
 ## 12. Open questions for the second tribunal
 
-1. Does the [lane] allowlist (§4) catch every compiled counterexample from
-   the first tribunal, with no false positive on legitimate vlib use?
+1. Is the allowlist (§4) complete? Find a write to vlib bytes, or a creation
+   of a vlib value, that none of rules 1-14 matches and the boundary does not
+   exclude.
 2. Do verifying traces (§6.2) make incremental equal from-scratch under the
    generator's out-of-band changes?
 3. Is exit 3 (decision gate) enforceable in Blackbird without blocking

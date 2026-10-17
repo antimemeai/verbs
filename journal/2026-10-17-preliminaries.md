@@ -205,3 +205,22 @@ port 3307, serving its own data directory. verbs' data was intact in
 .beads/dolt/verbs. Fix: dedicated `dolt.port: 13309` in .beads/config.yaml
 (blackbird and arconaut use 13308). Other repos on the default port remain
 exposed to the same collision.
+
+## Escape-allowlist lane (returned)
+
+papers/2026-10-17-escape-allowlist.md. Rule: vlib bytes are written or created
+only by vlib members and factories or by same-type copy/move; everything else
+(type erasure, re-typing, bit reinterpretation, raw writes, unions, asm,
+enum IntegralCast, narrow bit-fields, verbs specializations, explicit-
+instantiation theft, keyword macros, non-constinit statics, cross-unit
+mismatch) is an escape, matched on AST nodes (T*->void* is one BitCast node;
+every enum-ingress spelling is one IntegralCast). Prototype caught every
+escape-class counterexample with zero false positives on seven legitimate
+programs. Prototype and tribunal probes preserved in context/prototypes/.
+
+Spliced into SPEC §4, adapted to the basics (no Refined/Id). One divergence
+from the lane: it required every verbs enum to have a 0 enumerator, which
+would make verbs::to accept 0 from the wire. Instead VERBS_UNSET(name) names
+the zero state while excluding it from ingress; VERBS_ENUM without a 0 is a
+compile error. Non-constinit statics moved from boundary assumption to
+escape; compile-command argument changes are silencing lines.
