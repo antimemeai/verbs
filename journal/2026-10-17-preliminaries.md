@@ -128,3 +128,33 @@ to the tribunal:
   proves too costly.
 
 Filed beads verbs-de3.17 to .25 for the cases the spec defers (§13).
+
+## C++26 Clang lane (returned)
+
+papers/2026-10-17-cpp26-clang-toolchain.md. Recommendation: bloomberg/clang-p2996
+at f17c8d6c7bfe (2026-09-24) for all verbs C++, built locally by
+context/toolchain-cpp26/build-p2996.sh. Measured: 83 min full Release build,
+about 5 GiB total, 77 s incremental after a Sema change. Probed on it:
+reflection-generated enum domains (finds Reserved = 200), annotations read by
+reflection, a generic before/after check over annotated fields, LibTooling, a
+-load tidy plugin, a custom clangd, TSA and Consumed.
+
+No contracts: merging the efcs contracts branch (LLVM 24-dev) into the fork
+(LLVM 21.0.0git, 59,939 commits behind main) conflicts in 106 files and 263
+hunks. That is compiler maintenance, not setup; revisit when upstream lands
+contracts (#221139) or reflection (#232074). The basics already avoid
+contracts for representation checks (SPEC §3.1). The fork rejects some valid
+code GCC 16.2 accepts, has 85 open issues including crashes, and its API names
+predate the standard, so vlib uses a small shim. Mull's macOS range (LLVM
+16-21) covers the fork's base, so Mull likely needs a path change rather than
+a port.
+
+## Tribunal (three of four returned)
+
+Doctrine/value, soundness, and ergonomics reports are in papers/. Headline:
+the escape check as a deny-list of spellings is unsound (17 compiled
+counterexamples, e.g. fread into a vlib object, Mode m{raw}, template
+specialization access); Bounded is not ready for index/loop code; Id adds
+nothing over blackbird's own; seen() on decisions is shadow accounting; the
+spec has no stated path to the kill criterion. Revision waits on the checks
+and pipeline report.
