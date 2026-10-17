@@ -245,3 +245,63 @@ Sysroot note from the blackbird session: an autonomous test agent repointed
 16:38 until it was restored (mtime 16:39:34). No verbs probe ran in that
 window. The enum lane's clang extraction finished by 15:51, and the earlier
 lanes before that.
+
+## External reviews: ChatGPT and MiMo (revision 3)
+
+papers/2026-10-17-review-chatgpt.md (gpt-6.1-sol, xhigh, read-only sandbox;
+21 findings, compiled on the pinned Clang) and papers/2026-10-17-review-mimo.md
+(mimo-v2.6-pro plan agent, 14 findings; it stopped at its own plan-approval
+step, so the plan file is the report). Both ran on a bundle copy.
+- **MiMo copy:** a guard watched /opt/homebrew/etc/clang during its run. The
+  config was unchanged.
+- **Overlap:** the two reviews agree on the stale-facts hole, the kill
+  criterion, the §6.5 example, the read-only exception, and type-erased
+  attribution.
+
+Verified against blackbird before adopting F15: `Fields` is local to
+token_usage.cpp; journal.cpp returns `unsupported`; retained_events.cpp:548
+admits only {2,3,4,14} while `RetainedKind::retry = 7`.
+
+Dispositions:
+- **To the escape-v2 research lane** (papers/2026-10-17-escape-allowlist-v2.md
+  pending): ChatGPT F02 (const view then const_cast; same as MiMo F2), F03
+  (`std::as_writable_bytes` inside libc++), F04 (pointer to uintptr_t,
+  pointer bit_cast), F06 (attribution closure; with MiMo F5, program-wide on
+  erasure), F12 (partial same-type memcpy). Each bypasses a list of
+  constructs, so the lane is asked for a principled closed rule, measured.
+  §4.1, §4.5 and §4.8 are marked [lane].
+- **Fixed in the spec:**
+
+| Finding | Fix | Section |
+|---|---|---|
+| ChatGPT F01 | Rule 3 no longer assumes "mutation only through the type's operations"; the escape check establishes it | §2.1 |
+| ChatGPT F05 | The macro exemption is by definition location, not the `VERBS_` prefix | §4.3 rule 9 |
+| ChatGPT F07 | Hash every input on every run; 0.34 s measured | §6.2 |
+| ChatGPT F08, MiMo F3, MiMo F10 | A compile error suspends the report: real `+` lines only, no claims. Over budget, verbs still finishes; the budget gates the hook, it is not a cutoff | §6.2, §6.6 |
+| ChatGPT F09 | Jev is optional; the operator's labels complete the gate | §10.3 |
+| ChatGPT F10, MiMo F4 | Experiment defined: arms, seeds, fault oracle, detection event, censoring, proposed threshold | §1.1 |
+| ChatGPT F11 | The weakening baseline is the declared predicate, whatever the state | §4.7 |
+| ChatGPT F13 | Cross-unit grouping is by mangled name | §4.4 |
+| ChatGPT F14 | Enum audit points; the sanitizer limit is stated | §10.2 |
+| ChatGPT F15, MiMo F8 | Migration per seam: error codes and narrower guards kept; defect classes split into prevented and detected | §1.1 |
+| ChatGPT F16 | Internal keys carry the signature; locals have keys | §6.4 |
+| ChatGPT F17 | `upto` requires N ≥ 1 | §3.3 |
+| ChatGPT F18 | Exit precedence 2 > 3 > 1 > 0 | §6.1 |
+| ChatGPT F19 | Subjects are leaf vlib declarations and their wrappers; classes are not subjects | §2 |
+| ChatGPT F20, MiMo F1 | The §6.5 example is now a real escape | §6.5 |
+| ChatGPT F21 | Ingress takes exactly the types `std::in_range` accepts | §3.3 |
+| ChatGPT, constinit overbuild | Rule 12 fires only on non-constant-initialized statics whose zero is invalid | §4.3 |
+| MiMo F6 | Escapes gate by state (exit 1 until fixed); lost claims gate once, as events | §6.1 |
+| MiMo F7 | No `decided` state; decisions cover only proposal subjects; escapes are always fixed in code | §2, §7 |
+| MiMo F9 | Caps are 3 per file, 10 total | §6.5 |
+| MiMo F11 | The concurrency narrowing is stated as deliberate | §2.1 |
+| MiMo F12 | Wording: checked operations throw, ingress does not | §3.1 |
+| MiMo F14 | Path-rule format: `.verbs-outside`, one glob and reason per line | §6.3 |
+
+- **Not adopted:**
+  - MiMo's call to cut negative probes. Checks M7 measured the need: an
+    `__has_include` result or a shadowing include changes the parse.
+  - MiMo's call to cut the §4.4 signature database. Soundness B6 is a real
+    false `holds`, and the facts are recorded anyway.
+  - Bounded's full arithmetic. It is already gated on a named consumer
+    (increment B).
