@@ -82,9 +82,12 @@ from an initial package upload.
 [NuGet prefixes](https://learn.microsoft.com/en-us/nuget/nuget-org/id-prefix-reservation).
 
 Lua: packages/lua/verbs-scm-1.rockspec tracks main and installs the module using
-LuaRocks' builtin backend. Lua 5.1 through 5.4 and LuaJIT are supported. The
+LuaRocks' builtin backend. Lua 5.1 through 5.5 and LuaJIT are supported. The
 existing v0.1.0 tag predates Lua; a numbered rockspec needs a new immutable
-source release. Local checks pass on Lua 5.4 and LuaJIT. LuaRocks also supports
+source release. Local checks pass on Lua 5.4, 5.5.1, and LuaJIT. Rockspec lint,
+installation, and installed-module checks pass on Lua 5.1 and 5.4 in
+[CI run 38995766475](https://github.com/antimemeai/verbs/actions/runs/38995766475).
+LuaRocks also supports
 personal namespaces such as antimemeai/verbs. No root name or namespace was
 claimed. Publication requires registry authentication.
 [LuaRocks namespaces](https://github.com/luarocks/luarocks/blob/main/docs/namespaces.md),

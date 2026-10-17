@@ -13,7 +13,7 @@ description = {
     issues_url = "https://github.com/antimemeai/verbs/issues",
     license = "MIT",
 }
-dependencies = { "lua >= 5.1, < 5.5" }
+dependencies = { "lua >= 5.1, < 5.6" }
 build = {
     type = "builtin",
     modules = { verbs = "packages/lua/verbs.lua" },

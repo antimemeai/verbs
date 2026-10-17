@@ -1,7 +1,7 @@
 # Verbs for Lua
 
 Prepared LuaRocks identity: `verbs`; not uploaded or reserved. Pure Lua,
-compatible with Lua 5.1 through 5.4 and LuaJIT. No other rocks are required.
+compatible with Lua 5.1 through 5.5 and LuaJIT. No other rocks are required.
 
 ```lua
 local verbs = require("verbs")
