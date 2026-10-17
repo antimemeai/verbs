@@ -112,3 +112,17 @@ inherit `deferred` from the epic). The Dolt database has no remote; the
 tracked .beads/backup/ JSONL export is the off-machine copy, refreshed with
 `bd backup` before each commit. GitHub issue #1 (registry publications)
 remains open and parked with utils/.
+
+## First lint, fuzzing, and spec form
+
+- First discovery lint: enum candidates (values compared or assigned against a
+  small literal set across functions). Kind discovery follows once its
+  precision problem is designed for.
+- Fuzz testing is part of the verification strategy, purely for test-suite
+  quality: libFuzzer with ASan/UBSan, structure-aware fuzzing of anything that
+  parses, differential fuzzing of vlib arithmetic against a wide-integer model.
+- The operator struck "often of the literate quint form" from the workspace
+  BLACKBIRD.md. Designs are concrete prose and code; literate specification
+  belongs to the future Becoming project.
+- Design phase begins: design/SPEC.md for the basics, then an adversarial
+  tribunal, then the plan.
