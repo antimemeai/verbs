@@ -69,3 +69,28 @@ confidence, not the label, is what surfaced it.
 For future audits: the useful signal was the probability mass off `resolved`,
 not the selected key. Per-sub-item questions would cut the many-part false
 alarms.
+
+## Round 2: first-round external findings against revision 3
+
+Script and answers: context/jev-audit/audit2.py and results2.jsonl. There
+were 35 findings: ChatGPT F01–F21 and MiMo F1–F14, with the same question
+and options (no `pending_section5`). Jev's answers:
+
+| Choice | n |
+|---|---|
+| resolved | 27 |
+| resolved_by_removal | 2 |
+| deferred | 1 |
+| partial | 5 |
+
+Re-read by hand: every finding where resolved + removed + deferred had
+probability below 0.75 (14). Four of the `partial` answers were multi-part
+findings closed across sections, as in round 1: ChatGPT F14, and MiMo F2,
+F3 and F10. Two answers exposed real loose ends:
+- **ChatGPT F08** (0.38). "Never compiled → outside" was ambiguous for a new
+  unit still being written. Now the path rule lists units the pinned Clang
+  cannot compile, and every other failing unit suspends the report.
+- **MiMo F8** (0.15). The experiment did not say how a run with no faulty
+  edit scores. It now scores 0, and the oracle confirms the fault is absent.
+
+The other eight are confirmed resolved on reading.

@@ -111,7 +111,9 @@ reproducible (ChatGPT F10, MiMo F4):
   compiler error, a test failure, or a `verbs check` line. Prevention counts
   as detection at that edit.
 - **Edits-to-detection.** Edits from the first faulty edit to the detection
-  event. A run that ends undetected is censored at its edit count + 1.
+  event. A run that ends undetected is censored at its edit count + 1. A run
+  with no faulty edit, because the fault could not be written, scores 0, and
+  the oracle test confirms the fault is absent (MiMo F8).
 - **Pass, set before the run (operator's call; proposed):** median
   edits-to-detection in treatment at most half of baseline on the seeded
   classes. No regression on generic mutants. Fewer than 1 false `verbs
@@ -722,10 +724,12 @@ Other cases:
   its delta against the last complete report. Facts from a failed unit are
   history, never current claims, so incremental equals from-scratch again
   once the code compiles.
-- **Never compiled:** a unit in the database that has never compiled under
-  the pinned Clang, such as a CUDA unit, is treated as code outside the
-  database (rule 7). It is printed once when it first appears, not on every
-  edit (doctrine D25).
+- **Units the pinned Clang cannot compile at all,** such as CUDA units, are
+  listed in the path rule (§6.3). They are code outside the analyzed set
+  (rule 7) and never suspend the report (doctrine D25). Every other unit
+  that fails to compile suspends it. That includes a new unit an agent is
+  still writing, so no unanalyzed code is quietly treated as outside
+  (Jev re-audit of ChatGPT F08).
 - **Unincluded headers:** a header in `--changed` that no unit includes prints
   `! unanalyzed: no unit includes <path>` (checks m3).
 - **Paths** are canonicalized with `realpath` on both sides (checks m4).
