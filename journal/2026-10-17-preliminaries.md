@@ -68,3 +68,37 @@ Findings that change the brief's footing:
   Clang + C++23 is now an explicit tradeoff against GCC 16 or a reflection fork.
 - Also reported: Homebrew Clang 23's default sysroot names a missing
   MacOSX26.sdk (toolchain lane).
+
+## C++ toolchain lane (returned)
+
+papers/2026-10-17-cpp-toolchain-burdens.md, with source-line citations and
+probe output. Archive SHA-256 rechecked; manifest entry merged. Summary:
+
+- No LLVM source build is needed. The Homebrew bottle ships the LibTooling
+  CMake config, clang-tidy headers, and the static clangd libraries. A probe
+  LibTooling tool, tidy plugin, and custom clangd built together in 10.5 s.
+- Homebrew clang 23 cannot compile here as installed: its config names a
+  missing MacOSX26.sdk. Presets must set CMAKE_OSX_SYSROOT from xcrun
+  (Blackbird already does).
+- Pin hygiene: `llvm@23` currently aliases `llvm`, nothing is pinned, and
+  23.1.3 is pending. Plugins carry no ABI promise; rebuild on any LLVM change.
+- clangd cannot load tidy modules at runtime; a custom clangd is cheap but
+  needs `FastCheckFilter: Loose` or unknown checks are silently dropped.
+  clangd sends `version` in publishDiagnostics unconditionally.
+- Mull 0.34.2 stops at LLVM 21 (macOS) / 22 (Ubuntu). Mutants need the same
+  Clang major as the build: port Mull to 23 on the fleet, else an LLVM 22
+  mutation profile.
+- Clang 23 has no P2996 reflection; VERBS_ENUM must generate its own arrays.
+  The installed GCC 16.2 supports enumerators_of.
+- consteval BFS tops out near 7.5k states at default limits; 100k states
+  take 5-22 s with limits lifted.
+- Corpus: blackbird matches the pin (clang 23.1.2, C++23). Oxcart is mostly
+  Rust plus Apple-clang C++20/ObjC++. BRepGPU is C++17, clang 18, libstdc++,
+  Linux. vlib's C++23 types cannot land in the latter two without a standard
+  bump; lints can still parse them.
+- Disk: 70 GiB free (97% used) is the binding local constraint.
+- Latency on blackbird (257 TUs): warm clangd edit 0.55-3.0 s; cold clang-tidy
+  with a trivial check 1.4-3.8 s; the repo's own clang-analyzer config 2.4-76 s.
+  Warm clangd wins by 1.5-2.5x, and main-file reparse dominates, not tidy.
+  Header-fanout edits are unmeasured; Oxcart and BRepGPU need their own
+  configure runs to produce compile_commands.json, which the lane did not do.

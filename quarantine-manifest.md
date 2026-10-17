@@ -89,3 +89,27 @@ shasum -a 256 "$A/$N-$(printf %.12s "$SHA").zip"   # compare with the table
 python3 -I scripts/extract-reference.py "$A/$N-$(printf %.12s "$SHA").zip" "quarantine/$N"
 ```
 
+
+## llvm-project 23.1.2 — 2026-10-17
+
+Source release matching the pinned Homebrew LLVM, for reading Clang, clangd,
+clang-tidy and analysis sources. Never built or run from quarantine.
+
+- URL: https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.2/llvm-project-23.1.2.src.tar.xz
+- License: Apache-2.0 WITH LLVM-exception
+- Archive: `quarantine/_archives/llvm-project-23.1.2.src.tar.xz`, 179,200,068
+  bytes, SHA-256
+  `c98bbef08a2b4c2613cd50e9aa9ae7b69b1fe6c16b2c40373bc0ab6116fdf78a` (matches
+  the Homebrew formula).
+- Clean copy: `quarantine/llvm-project/`, 180,580 regular files, 2.5 GB. 19
+  symlinks (clang driver test inputs, mlgo utils) and `.DS_Store` omitted.
+
+Restore from the repository root:
+
+```sh
+mkdir -p quarantine/_archives && cd quarantine/_archives
+curl -fsSLO https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.2/llvm-project-23.1.2.src.tar.xz
+echo "c98bbef08a2b4c2613cd50e9aa9ae7b69b1fe6c16b2c40373bc0ab6116fdf78a  llvm-project-23.1.2.src.tar.xz" | shasum -a 256 -c
+cd .. && tar -xJf _archives/llvm-project-23.1.2.src.tar.xz && mv -f llvm-project-23.1.2.src llvm-project
+find llvm-project -type l -delete; find llvm-project -name .DS_Store -delete
+```
