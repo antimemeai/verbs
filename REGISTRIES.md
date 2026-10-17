@@ -8,7 +8,7 @@ source preparation are separate states. Do not publish placeholder-only packages
 | GitHub | `antimemeai/verbs` | Public personal repository created |
 | Rust / crates.io | `verbs` | Published 0.1.0; public API confirms the version and repository |
 | Python / PyPI | `pverbs` | Published 0.1.0; wheel/sdist hashes confirmed by public API; fresh pip installation passes |
-| npm | `jsverbs` | Package contents and contract checks pass; awaiting saved workspace npm credential |
+| npm | `jsverbs` | Upload attempted with saved credential; npm requires an additional OTP or a token permitting 2FA bypass |
 | JSR | `@antimeme/verbs` | Operator created the package; zero versions so far; browser publication authorization next |
 | ConanCenter | `verbs` | Local package creation and consumer test pass; central submission deferred by operator |
 | vcpkg | `verbs` | Port draft prepared; package validation pending, central submission deferred by operator |
@@ -18,7 +18,7 @@ source preparation are separate states. Do not publish placeholder-only packages
 | Ruby / RubyGems | `verbs-agent` (provisional) | `verbs` is taken; alternative API returns 404; gem builds locally |
 | Erlang / Hex | `verbs_agent` (provisional) | `verbs` is taken; alternative API returns 404; OTP source and metadata prepared |
 | .NET / NuGet | `Verbs` | Flat-container API returns 404, exact-ID search empty; .NET Standard 2.0 project prepared |
-| Lua / LuaRocks | `verbs` | Numbered rockspec installs from lua-v0.1.0; awaiting saved workspace luarocks credential |
+| Lua / LuaRocks | `verbs` | Published 0.1.0-1 in root manifest; fresh registry installation and installed-module checks pass |
 
 The five additional footprints passed [CI run 38990090145](https://github.com/antimemeai/verbs/actions/runs/38990090145):
 PHP/Ruby/Erlang/Dart/.NET contract checks, strict Composer validation, Ruby gem
@@ -47,6 +47,10 @@ npm: `cd packages/js && npm login && npm publish --access public`. Dry run with
 The release utility also supports `python scripts/publish.py npm`, reading the
 npm key from ~/projects/.env through a temporary npmrc that references a child
 environment variable. It leaves no credential in the repository or user npmrc.
+The current token requires a second factor. With a current code saved as
+npm_otp in that file, use `python scripts/publish.py npm --otp-from-env`.
+The code goes only into the child NPM_CONFIG_OTP environment and is redacted
+from captured output. Alternatively supply a publishing token with 2FA bypass.
 
 JSR: the operator created @antimeme/verbs. Publish from packages/js with
 `deno publish` and complete browser authorization. All JSR names are scoped;
@@ -72,7 +76,7 @@ packages/ocaml/verbs.opam supports local source development.
 See packaging/README.md for submission drafts. The public source tag is v0.1.0.
 JavaScript tests and npm packaging pass. Deno type checking, JSR public-type
 checking, and JSR publication dry run pass. JSR publication still needs account
-authorization. Rust and Python publication have succeeded; the remaining registry states
+authorization. Rust, Python, and LuaRocks publication have succeeded; the remaining registry states
 are listed individually above.
 
 ## Additional provisional footprints
@@ -103,6 +107,9 @@ from an initial package upload.
 Lua: packages/lua/verbs-scm-1.rockspec tracks main. The numbered
 verbs-0.1.0-1.rockspec installs from the new lua-v0.1.0 source tag; that source
 archive's checksum is included. LuaRocks' builtin backend installs the module.
+[verbs 0.1.0-1](https://luarocks.org/modules/antimemeai/verbs) is now published in
+the root manifest. A fresh `luarocks install verbs 0.1.0-1` into an isolated
+local tree succeeded, and the installed module passes its contract suite.
 Lua 5.1 through 5.5 and LuaJIT are supported. The older v0.1.0 tag predates Lua.
 scripts/check-lua-package.sh passes lint, archive download/install, and contract
 checks against the installed release module on Lua 5.4. The release utility
@@ -112,8 +119,9 @@ Local source checks pass on Lua 5.4, 5.5.1, and LuaJIT. Rockspec lint,
 installation, and installed-module checks pass on Lua 5.1 and 5.4 in
 [CI run 38995766475](https://github.com/antimemeai/verbs/actions/runs/38995766475).
 LuaRocks also supports
-personal namespaces such as antimemeai/verbs. No root name or namespace was
-claimed. Publication requires registry authentication.
+personal namespaces such as antimemeai/verbs. The root verbs name is now
+claimed by this publication under antimemeai. Future uploads require registry
+authentication.
 [LuaRocks namespaces](https://github.com/luarocks/luarocks/blob/main/docs/namespaces.md),
 [rock creation](https://github.com/luarocks/luarocks/blob/main/docs/creating_a_rock.md).
 

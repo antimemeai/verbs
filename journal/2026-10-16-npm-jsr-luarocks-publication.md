@@ -46,3 +46,20 @@ in Python with TLS and redirects disabled. It performs a rockspec-only upload;
 the immutable source archive remains on GitHub. No upload key is passed to a
 subprocess or saved in lasting config, and errors redact the key. Source:
 luarocks/luarocks v3.13.0 src/luarocks/cmd/upload.lua and upload/api.lua.
+
+The operator saved the workspace file; both npm and luarocks keys are now
+available. LuaRocks' authenticated preflight passed and the rockspec upload
+succeeded. The root manifest lists verbs 0.1.0-1, and the public module page is
+https://luarocks.org/modules/antimemeai/verbs. A fresh registry-based install
+into an isolated local rock tree succeeded; the installed module passes the
+contract suite. The root verbs identity is now claimed by this publication.
+
+npm's dry run passed, but actual upload returned EOTP requiring an additional
+authenticator code. No jsverbs version has been published. Asked for either a
+publishing token that permits 2FA bypass or a current npm_otp entry in the
+workspace file. Added --otp-from-env to read that code only when explicitly
+requested, pass it through NPM_CONFIG_OTP, and redact it with the API token.
+
+The earlier JSR request expired before authorization. Started a new request
+for @antimeme/verbs 0.1.0 and provided its fresh browser link. JSR remains
+created with zero published versions until approval and server verification.

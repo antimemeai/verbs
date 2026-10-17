@@ -38,14 +38,17 @@ def credential(key):
     return matches[0]
 
 
-def run(command, token, env, cwd=ROOT):
+def run(command, token, env, cwd=ROOT, extra_secrets=()):
     result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True)
     for output, stream in ((result.stdout, sys.stdout), (result.stderr, sys.stderr)):
-        stream.write(output.replace(token, "<redacted>"))
+        for secret in (token,) + tuple(extra_secrets):
+            output = output.replace(secret, "<redacted>")
+        stream.write(output)
     return result.returncode
 
 
-def publish_npm(token, dry_run):
+def publish_npm(token, dry_run, otp_from_env=False):
+    otp = credential("npm_otp") if otp_from_env else None
     with tempfile.TemporaryDirectory(prefix="verbs-npm-") as directory:
         config = Path(directory) / "npmrc"
         config.write_text('//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n')
@@ -56,10 +59,12 @@ def publish_npm(token, dry_run):
             "NPM_CONFIG_USERCONFIG": str(config),
             "NPM_CONFIG_LOGS_MAX": "0",
         })
+        if otp:
+            env["NPM_CONFIG_OTP"] = otp
         command = ["npm", "publish", "--access", "public", "--registry", "https://registry.npmjs.org/"]
         if dry_run:
             command.append("--dry-run")
-        return run(command, token, env, ROOT / "packages/js")
+        return run(command, token, env, ROOT / "packages/js", (otp,) if otp else ())
 
 
 def publish_luarocks(token, dry_run):
@@ -116,10 +121,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("registry", choices=("crates", "pypi", "npm", "luarocks"))
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--otp-from-env", action="store_true",
+                        help="For npm only: read a current one-time code from npm_otp in workspace .env")
     args = parser.parse_args()
+    if args.otp_from_env and args.registry != "npm":
+        parser.error("--otp-from-env is only supported for npm")
     token = credential(args.registry)
     if args.registry == "npm":
-        return publish_npm(token, args.dry_run)
+        return publish_npm(token, args.dry_run, args.otp_from_env)
     if args.registry == "luarocks":
         return publish_luarocks(token, args.dry_run)
     env = os.environ.copy()

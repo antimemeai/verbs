@@ -1,6 +1,6 @@
 # Verbs for Lua
 
-Prepared LuaRocks identity: `verbs`; not uploaded or reserved. Pure Lua,
+Published LuaRocks identity: `verbs` version 0.1.0-1. Pure Lua,
 compatible with Lua 5.1 through 5.5 and LuaJIT. No other rocks are required.
 
 ```lua
@@ -36,5 +36,5 @@ the process, with no API key in command arguments or persistent CLI config.
 Use --dry-run for the authenticated name/version check without an upload.
 
 Publication requires LuaRocks authentication. Personal user namespaces are
-supported, for example `antimemeai/verbs`; preparing these files claims neither
-the root name nor a user namespace.
+supported, for example `antimemeai/verbs`. This release is listed in the root
+manifest under the antimemeai account: `luarocks install verbs` installs it.
