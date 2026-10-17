@@ -9,9 +9,9 @@ source preparation are separate states. Do not publish placeholder-only packages
 | Rust / crates.io | `verbs` | Published 0.1.0; public API confirms the version and repository |
 | Python / PyPI | `pverbs` | Published 0.1.0; wheel/sdist hashes confirmed by public API; fresh pip installation passes |
 | npm | `jsverbs` | API returned 404; package prepared; npm login required |
-| JSR | `@antimemeai/verbs` | Source prepared; scope/package creation and authentication required |
-| ConanCenter | `verbs` | Recipe path absent; local package creation and consumer test pass, central submission/review required |
-| vcpkg | `verbs` | Port path absent; port draft prepared, package validation and submission required |
+| JSR | `@antimeme/verbs` | Operator created the package; zero versions so far; browser publication authorization next |
+| ConanCenter | `verbs` | Local package creation and consumer test pass; central submission deferred by operator |
+| vcpkg | `verbs` | Port draft prepared; package validation pending, central submission deferred by operator |
 | opam | `verbs` | Package path absent; release manifest with URL/checksum prepared, isolated install and submission required |
 | PHP / Packagist | `antimemeai/verbs` | Package API returns 404, vendor listing empty; root Composer manifest and PHP source prepared |
 | Dart / pub.dev | `verbs` | Package API returns 404; SDK-only package prepared |
@@ -45,8 +45,8 @@ pypi` reads the pypi key in ~/projects/.env and uploads the prepared artifacts.
 npm: `cd packages/js && npm login && npm publish --access public`. Dry run with
 `npm pack --dry-run`. Package includes ESM JavaScript and TypeScript declarations.
 
-JSR: create the personal scope and package through https://jsr.io/new, then
-publish from packages/js with `deno publish`. All JSR names are scoped;
+JSR: the operator created @antimeme/verbs. Publish from packages/js with
+`deno publish` and complete browser authorization. All JSR names are scoped;
 there is no globally claimed bare `verbs` package. The personal scope can hold
 this package without creating a GitHub organization.
 [Scopes](https://jsr.io/docs/scopes), [publishing](https://jsr.io/docs/publishing-packages).
@@ -56,6 +56,10 @@ conan-io/conan-center-index. vcpkg similarly accepts ports through its source
 repository. A local recipe or overlay does not claim a central registry name.
 [ConanCenter](https://docs.conan.io/2/tutorial/conan_repositories/conan_center.html),
 [vcpkg ports](https://learn.microsoft.com/en-us/vcpkg/concepts/ports).
+
+Current publication scope is npm, JSR, and LuaRocks. The other outstanding
+registry publications can wait. ConanCenter and vcpkg remain intended targets,
+but the operator wants further project development before central review.
 
 opam publication uses a released source archive and a reviewed repository
 contribution. packaging/opam/verbs.opam contains the release URL and checksum;

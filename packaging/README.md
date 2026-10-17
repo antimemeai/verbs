@@ -1,6 +1,8 @@
 # Registry submission drafts
 
 These files do not claim central registry names and have not been submitted.
+The operator deferred ConanCenter/vcpkg review submissions until the project
+has progressed further. Keep developing the packages; do not submit them now.
 The recipes point to the public v0.1.0 source archive. Archive hashes were
 computed from the downloaded archive. C++ source/build/install checks pass.
 Conan package creation and its consumer build/run pass on macOS arm64.
