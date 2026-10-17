@@ -1,0 +1,30 @@
+name: Lua footprint
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/lua/**', '.github/workflows/lua.yml']
+  pull_request:
+    paths: ['packages/lua/**', '.github/workflows/lua.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lua: ['5.1', '5.4']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Lua tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends lua${{ matrix.lua }} liblua${{ matrix.lua }}-dev luarocks
+      - run: luarocks lint packages/lua/verbs-scm-1.rockspec
+      - name: Install the rock into a local tree
+        run: luarocks --lua-version=${{ matrix.lua }} make packages/lua/verbs-scm-1.rockspec --tree=context/lua-rocks
+      - name: Check the installed module
+        run: LUA_PATH="$PWD/context/lua-rocks/share/lua/${{ matrix.lua }}/?.lua;;" lua${{ matrix.lua }} packages/lua/test/check.lua

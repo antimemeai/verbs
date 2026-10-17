@@ -3,10 +3,13 @@ set -eu
 cd "$(dirname "$0")/.."
 
 if [ "$#" -eq 0 ]; then
-    set -- php dart ruby erlang dotnet
+    set -- php dart ruby erlang dotnet lua
 fi
 for language in "$@"; do
     case "$language" in
+        lua)
+            LUA_PATH="$PWD/packages/lua/?.lua;;" "${LUA_BIN:-lua}" packages/lua/test/check.lua
+            ;;
         php)
             php packages/php/tests/check.php
             ;;

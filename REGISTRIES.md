@@ -19,6 +19,7 @@ source preparation are separate states. Do not publish placeholder-only packages
 | Ruby / RubyGems | `verbs-agent` (provisional) | `verbs` is taken; alternative API returns 404; gem builds locally |
 | Erlang / Hex | `verbs_agent` (provisional) | `verbs` is taken; alternative API returns 404; OTP source and metadata prepared |
 | .NET / NuGet | `Verbs` | Flat-container API returns 404, exact-ID search empty; .NET Standard 2.0 project prepared |
+| Lua / LuaRocks | `verbs` | Absent from root manifest and manifest-5.1; development rockspec and pure Lua module prepared |
 
 The five additional footprints passed [CI run 38990090145](https://github.com/antimemeai/verbs/actions/runs/38990090145):
 PHP/Ruby/Erlang/Dart/.NET contract checks, strict Composer validation, Ruby gem
@@ -58,6 +59,7 @@ authorization. No package registry publication has succeeded yet.
 ## Additional provisional footprints
 
 PHP, Dart, Ruby, Erlang, and .NET were provisionally approved by the operator.
+Lua/LuaRocks was subsequently added.
 Maven/Java is excluded. The implementations have no added runtime or test
 libraries. Ruby's gem name and Erlang's application/module name avoid collisions
 with the existing unrelated conjugation libraries.
@@ -78,6 +80,15 @@ from an initial package upload.
 [Dart publishing](https://dart.dev/tools/pub/publishing),
 [Hex Erlang publishing](https://hex.pm/docs/rebar3-publish),
 [NuGet prefixes](https://learn.microsoft.com/en-us/nuget/nuget-org/id-prefix-reservation).
+
+Lua: packages/lua/verbs-scm-1.rockspec tracks main and installs the module using
+LuaRocks' builtin backend. Lua 5.1 through 5.4 and LuaJIT are supported. The
+existing v0.1.0 tag predates Lua; a numbered rockspec needs a new immutable
+source release. Local checks pass on Lua 5.4 and LuaJIT. LuaRocks also supports
+personal namespaces such as antimemeai/verbs. No root name or namespace was
+claimed. Publication requires registry authentication.
+[LuaRocks namespaces](https://github.com/luarocks/luarocks/blob/main/docs/namespaces.md),
+[rock creation](https://github.com/luarocks/luarocks/blob/main/docs/creating_a_rock.md).
 
 Source preparation and CI validation do not claim registry names. Run
 scripts/check-registries.py for fresh status. Research and exact endpoints are

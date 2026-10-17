@@ -13,6 +13,7 @@
 .venv/
 CMakeUserPresets.json
 *.gem
+*.rock
 **/bin/
 **/obj/
 **/.dart_tool/

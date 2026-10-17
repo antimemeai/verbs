@@ -26,7 +26,7 @@ Source surfaces: Rust at the repository root, JavaScript and TypeScript in
 The public API is experimental in 0.1.0.
 
 Additional provisional footprints live in `packages/php`, `packages/dart`,
-`packages/ruby`, `packages/erlang`, and `packages/dotnet`. The root composer.json
+`packages/ruby`, `packages/erlang`, `packages/dotnet`, and `packages/lua`. The root composer.json
 describes the PHP package for Packagist. Ruby uses the provisional gem name
 `verbs-agent` and Erlang uses `verbs_agent` because `verbs` is taken in both
 registries. No new registry names have been claimed.
@@ -34,7 +34,7 @@ registries. No new registry names have been claimed.
 Run `./scripts/check.sh` to check the language implementations with local tools.
 There are no runtime dependencies.
 
-Run `./scripts/check-footprints.sh` for the five additional language checks, or
+Run `./scripts/check-footprints.sh` for the additional language checks, or
 pass individual names such as `ruby` or `dotnet` when only those tools are
 installed. The Package footprints workflow runs their checks and available
 package dry runs without publishing. `./scripts/check-registries.py` rechecks

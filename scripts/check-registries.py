@@ -3,6 +3,7 @@
 
 import concurrent.futures
 from datetime import datetime, timezone
+import re
 import urllib.error
 import urllib.request
 
@@ -15,6 +16,7 @@ PACKAGES = (
     ("Erlang/Elixir", "verbs", "https://hex.pm/api/packages/verbs"),
     ("Erlang alternative", "verbs_agent", "https://hex.pm/api/packages/verbs_agent"),
     (".NET", "Verbs", "https://api.nuget.org/v3-flatcontainer/verbs/index.json"),
+    ("Lua", "verbs", "https://luarocks.org/manifest"),
     ("Haskell", "verbs", "https://hackage.haskell.org/package/verbs/preferred.json"),
 )
 
@@ -27,6 +29,12 @@ def check(package):
     try:
         with urllib.request.urlopen(request, timeout=25) as response:
             status = response.status
+            if ecosystem == "Lua" and status == 200:
+                manifest = response.read().decode("utf-8")
+                if not re.search(r"(?m)^repository\s*=\s*\{", manifest):
+                    return ecosystem, name, "unexpected manifest; availability unknown"
+                listed = re.search(r'(?m)^\s*(?:\["verbs"\]|verbs)\s*=', manifest)
+                return ecosystem, name, "listed" if listed else "absent from root manifest; not reserved"
     except urllib.error.HTTPError as error:
         status = error.code
     except (urllib.error.URLError, TimeoutError, OSError):

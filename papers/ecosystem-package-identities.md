@@ -16,6 +16,7 @@ successful registry registration/publication establishes ownership.
 | Erlang alternative | [verbs_agent](https://hex.pm/api/packages/verbs_agent) | HTTP 404 |
 | .NET | [Verbs flat container](https://api.nuget.org/v3-flatcontainer/verbs/index.json) | HTTP 404 |
 | .NET exact-ID search | [Verbs search](https://azuresearch-usnc.nuget.org/query?q=packageid:Verbs&prerelease=true) | totalHits 0 |
+| Lua | [root manifest](https://luarocks.org/manifest), [Lua 5.1 manifest](https://luarocks.org/manifest-5.1) | HTTP 200 text/x-lua; neither contains an exact verbs entry |
 | Haskell | [verbs package](https://hackage.haskell.org/package/verbs), [preferred versions](https://hackage.haskell.org/package/verbs/preferred.json) | Both HTTP 404; no exact verbs entry in preferred-versions |
 | Common Lisp | [Quicklisp 2026-01-01 systems](https://beta.quicklisp.org/dist/quicklisp/2026-01-01/systems.txt) | No verbs or cl-verbs system |
 | Common Lisp project list | quicklisp/quicklisp-projects projects/verbs/source.txt and projects/cl-verbs/source.txt | Both HTTP 404 on master |
@@ -37,6 +38,18 @@ can be used by Elixir without another package. The application metadata and
 Rebar configuration form its package footprint. The rebar3 Hex plugin is a
 separate publication tool, not a runtime dependency adopted by these sources.
 [Hex publishing](https://hex.pm/docs/rebar3-publish).
+
+LuaRocks has a first-come root manifest and per-user manifests/namespaces.
+The root manifest and manifest-5.1 were read as text, not executed; both were
+nonempty Lua metadata documents with a repository table and no exact verbs
+key. Source preparation does not register either a root package or user name.
+The development rockspec tracks main because the existing v0.1.0 release
+predates Lua. A future numbered rockspec must refer to a source release that
+actually includes the module. LuaRocks is publication tooling, not an added
+runtime library. Its former GitHub wiki pages redirect to the wiki home;
+the current official docs live in docs/ in the source repository.
+[Namespaces](https://github.com/luarocks/luarocks/blob/main/docs/namespaces.md),
+[rockspec format](https://github.com/luarocks/luarocks/blob/main/docs/rockspec_format.md).
 
 Hackage accepts Cabal source distributions and requires upload privileges.
 New package names are compared case-insensitively. Candidate uploads are
