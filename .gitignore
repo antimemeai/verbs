@@ -11,3 +11,4 @@
 .DS_Store
 .env
 .venv/
+CMakeUserPresets.json

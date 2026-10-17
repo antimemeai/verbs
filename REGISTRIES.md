@@ -6,14 +6,14 @@ source preparation are separate states. Do not publish placeholder-only packages
 | Ecosystem | Requested identity | Current state |
 | --- | --- | --- |
 | GitHub | `antimemeai/verbs` | Public personal repository created |
-| Rust / crates.io | `verbs` | Validated package; publication next |
+| Rust / crates.io | `verbs` | Package validates; publication rejected with HTTP 403 authentication failed; token refresh required |
 | Python / PyPI | `pyverbs` | Taken by [rdma-core bindings](https://pypi.org/project/pyverbs/) |
 | Python alternative | `verbs-agent` | API returned 404; source prepared, not packaged or claimed |
 | npm | `jsverbs` | API returned 404; package prepared; npm login required |
 | JSR | `@antimemeai/verbs` | Source prepared; scope/package creation and authentication required |
-| ConanCenter | `verbs` | Recipe path absent; C++ source prepared, recipe/submission still required |
-| vcpkg | `verbs` | Port path absent; C++ CMake package prepared, port/submission still required |
-| opam | `verbs` | Package path absent; local manifest prepared, released source URL/checksum and submission required |
+| ConanCenter | `verbs` | Recipe path absent; local package creation and consumer test pass, central submission/review required |
+| vcpkg | `verbs` | Port path absent; port draft prepared, package validation and submission required |
+| opam | `verbs` | Package path absent; release manifest with URL/checksum prepared, isolated install and submission required |
 
 Rust: `cargo publish` from the repository root. The local rustup toolchain is
 pinned in rust-toolchain.toml; prefer `~/.cargo/bin` on PATH. Standard Cargo
@@ -35,8 +35,14 @@ repository. A local recipe or overlay does not claim a central registry name.
 [vcpkg ports](https://learn.microsoft.com/en-us/vcpkg/concepts/ports).
 
 opam publication uses a released source archive and a reviewed repository
-contribution. The existing verbs.opam is a local draft without an archive URL.
+contribution. packaging/opam/verbs.opam contains the release URL and checksum;
+packages/ocaml/verbs.opam supports local source development.
 [opam packaging](https://opam.ocaml.org/doc/Packaging.html).
+
+See packaging/README.md for submission drafts. The public source tag is v0.1.0.
+JavaScript tests and npm packaging pass. Deno type checking, JSR public-type
+checking, and JSR publication dry run pass. JSR publication still needs account
+authorization. No package registry publication has succeeded yet.
 
 ## Other ecosystems to consider
 

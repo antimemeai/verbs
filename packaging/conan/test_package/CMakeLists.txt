@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.15)
+project(verbs_package_test LANGUAGES CXX)
+find_package(verbs CONFIG REQUIRED)
+add_executable(example example.cpp)
+target_compile_features(example PRIVATE cxx_std_17)
+target_link_libraries(example PRIVATE verbs::verbs)

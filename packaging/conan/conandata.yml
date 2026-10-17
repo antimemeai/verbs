@@ -1,0 +1,5 @@
+sources:
+  "0.1.0":
+    url: "https://codeload.github.com/antimemeai/verbs/tar.gz/refs/tags/v0.1.0"
+    filename: "verbs-0.1.0.tar.gz"
+    sha256: "adff8dd5444d26dadc9355ebc6a9305121d74c6dec03cb1ddabff5476ee54a38"
