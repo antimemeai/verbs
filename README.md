@@ -9,6 +9,26 @@ The project is in research and design. design/verbs-design-brief.md is the
 founding orientation input, not a settled design. Decisions are recorded in
 journal/; literature and lane reports are in papers/.
 
+## Claim boundary
+
+Early verbs nails the basics before complex cases. Every invariant claim it
+makes holds only under these assumptions, and verbs states them with the
+claim:
+
+- **No exception unwinds mid-mutation.** Unwind preservation is not checked.
+- **No moved-from object is used.** Moved-from states are not modelled.
+- **One exclusive owner.** An invariant mentions only its owner's own value
+  members, and only the owner's operations mutate them.
+- **One thread at a time.** The owner is confined to one thread. Lock-scoped
+  and lock-free cases are outside the claim; memory ordering is never claimed.
+- **No call-outs while broken.** The owner does not call unowned code while
+  its invariant is temporarily broken.
+- **Single-state only.** No relation between before and after a mutation is
+  claimed, except `const`.
+
+Code outside these bounds is reported as outside the claim, not as passing.
+The deferred cases are tracked as beads under `verbs-de3`.
+
 ## What exists today
 
 A placeholder runtime check, `check(name, value, predicate)`, in Rust (repository

@@ -95,3 +95,20 @@ long side quest. When a design question only matters for a complex case, write
 it down as deferred and move on; do not build machinery for it. The rules
 above (ownership, re-entrancy, concurrency) already mark where the deferred
 territory begins.
+
+## Early-claim assumptions and tracking
+
+The operator accepted that early claims assume no exception unwinds
+mid-mutation and no moved-from object is used, provided this is very clear.
+README.md now carries a claim boundary listing every assumption early claims
+rest on; verbs must state them with each claim.
+
+Tracking moved to bd (beads), prefix `verbs-`, at the operator's request.
+AGENTS.md's GitHub-issues line and bd's injected boilerplate were replaced by
+a pointer to ~/AGENTS.md. Every deferred or simplified case is a bead under
+epic verbs-de3 (17 children), plus verbs-4ox (Rust phase) and verbs-b4x (Mull
+on the pinned C++26 Clang). Labels: `deferred`, `simplification` (children
+inherit `deferred` from the epic). The Dolt database has no remote; the
+tracked .beads/backup/ JSONL export is the off-machine copy, refreshed with
+`bd backup` before each commit. GitHub issue #1 (registry publications)
+remains open and parked with utils/.
