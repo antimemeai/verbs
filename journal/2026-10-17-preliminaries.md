@@ -305,3 +305,32 @@ Dispositions:
     false `holds`, and the facts are recorded anyway.
   - Bounded's full arithmetic. It is already gated on a named consumer
     (increment B).
+
+## Enum-candidate lane (returned): discovery and decisions leave the basics
+
+papers/2026-10-17-enum-candidate-redesign.md. The agent hung for 48 min on a
+Bash call that never executed. I stopped it and resumed it from its
+transcript, and it finished.
+
+The rule was redesigned: directed flow; constants by value; a closed list of
+uses; exclusion clauses for each false class found on blackbird; tiers A, E,
+H and P. It was tuned on blackbird and measured on held-out BRepGPU:
+- **Edit-boundary tiers (A+E):** 8/8 true on blackbird. On BRepGPU, 6/13
+  frozen and 5/8 after a fact-loader fix (increments had been dropped as
+  writes).
+- **Surviving false findings:** a version number, a count and a bit mask.
+  None is separable by uses.
+- **Recall at the edit boundary:** 6.6%.
+- **Jev:** κ 0.17 and −0.01, i.e. chance. Re-reading the disagreements
+  still changed 9 of 17 first-pass labels.
+
+Adopted the lane's recommendation: no discovery in the basics. Because
+revision 3 had already restricted decisions to proposal subjects (MiMo F7),
+decisions go too: `VERBS_OPEN_DOMAIN`, exit 3, and the lifecycle. The basics
+now have no annotations at all, and every finding is fixed in code. Exit
+codes are 0, 1 and 2. Both move to bead verbs-de3.35 with the rule text,
+the settled points, the placement decision and the prevent-not-detect gate
+requirement. Tier E alone (3/3 on blackbird) is the cheap follow-up.
+
+Artifacts: context/prototypes/enum-lane/ (sources, rules, labels, Jev
+outputs, excerpts; regenerable facts dropped, 488 MB).

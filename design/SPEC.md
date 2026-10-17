@@ -1,7 +1,9 @@
 # verbs basics: design specification
 
 Status: revision 3, 2026-10-17, after the first tribunal, the Jev coverage
-audit and the ChatGPT and MiMo reviews (papers/2026-10-17-review-*.md).
+audit, the ChatGPT and MiMo reviews (papers/2026-10-17-review-*.md) and the
+enum-candidate lane, whose evidence removed discovery and decisions from the
+basics (§5, §7).
 Scope: the basics
 only, per the basics-first principle (journal/2026-10-17-operator-decisions.md).
 Everything outside the basics is a bead and is named here only to mark the
@@ -19,12 +21,9 @@ Findings are cited by report and ID: soundness B1, checks M7, doctrine D3,
 ergonomics S2.
 
 Marked **[lane]**: text that an open research lane replaces when it
-returns:
-- the enum-candidate lane (papers/2026-10-17-enum-candidate-redesign.md)
-  replaces §5;
-- the escape-v2 lane (papers/2026-10-17-escape-allowlist-v2.md) replaces
-  §4.1, §4.5 and §4.8, after ChatGPT F02–F06 and F12 broke the read-only
-  exception, the library-internals scope and type-only attribution.
+returns. The escape-v2 lane (papers/2026-10-17-escape-allowlist-v2.md)
+replaces §4.1, §4.5 and §4.8, after ChatGPT F02–F06 and F12 broke the
+read-only exception, the library-internals scope and type-only attribution.
 
 ---
 
@@ -42,20 +41,18 @@ basics have three parts:
    vlib type, or silences the warnings vlib relies on. Every claim in (1)
    rests on it.
 3. **`verbs check`** (§6), a stateless command run after each edit. It prints
-   what the edit added, resolved, weakened or decided.
+   what the edit added, resolved or weakened.
 
-There is also one discovery check, enum candidates (§5). It proposes and
-never gates.
+The basics have no discovery check and no decisions (§5, §7).
 
 There is no daemon, no database and no LLM dependency. There is no
-annotation syntax for invariants either: the vlib type of a declaration *is*
-its invariant declaration.
+annotation syntax either: the vlib type of a declaration *is* its invariant
+declaration, and every finding is fixed in code.
 
 **Annotations clarify; they never encumber.** Where the meaning is evident
-from the code, there is no annotation. verbs asks for one only to record what
-the code cannot say: a decision's rationale (§7). If a finding could only be
-silenced by an annotation that states the obvious, the check is wrong. Fix the
-check; don't ask for the annotation.
+from the code, there is no annotation. If a finding could only be silenced by
+an annotation that states the obvious, the check is wrong. Fix the check;
+don't ask for the annotation.
 
 ### 1.1 How the basics reach the kill criterion
 
@@ -66,7 +63,8 @@ so the treatment is a **migration** (doctrine D1).
 - **Corpus:** blackbird only. BRepGPU is C++17 with an `extern "C"` interface
   and a CUDA backend (doctrine D1, ergonomics B-excerpt). It cannot hold vlib
   types without raising its standard and changing its ABI. It is outside the
-  basics, except as input for measuring the enum-candidate check's precision.
+  basics. It served as the held-out corpus for the enum-candidate lane
+  (§5).
 - **First migration:** blackbird's enum ingress, seam by seam. The seams
   differ (ChatGPT review F15), so there is no universal helper:
   - token_usage.cpp has its own anonymous-namespace `Fields` reader (lines
@@ -154,9 +152,8 @@ Each examined declaration is in exactly one state:
 | `finding` | An escape or a silencing affects D, with evidence. |
 | `outside` | D is outside the claim boundary. The report names the rule that excludes it. |
 
-There is no `decided` state. A decision (§7) concerns a raw subject of a
-proposal, which is never a claim. No decision covers an escape: every
-escape is fixable in code, so it is fixed (MiMo F7).
+There is no `decided` state. Every escape is fixable in code, so it is
+fixed; nothing waives it (MiMo F7).
 
 There is no `unknown` state either. A claim that depends on code that could
 not be analyzed is not reported at all while the report is suspended
@@ -496,7 +493,7 @@ Clang's system-header flag.
 
 ### 4.6 Silencing
 
-verbs honours no suppression comment; only a decision (§7) silences a finding
+verbs honours no suppression comment, and nothing silences a finding
 (checks M2). These are silencing findings, printed `!`:
 - **Warnings the boundary needs.** A change to the diagnostic state of a
   warning in rules 9–10, by any pragma spelling (`clang`, `GCC`, `_Pragma`).
@@ -550,38 +547,32 @@ context/prototypes/escape-lane/. Results:
 The prototype is evidence for the rule, not the implementation. The
 implementation is written red-first against §10.2.
 
-## 5. Enum candidates **[lane]**
+## 5. Discovery: not in the basics
 
-> **[lane] enum-candidate redesign.** The lane's precise rule, its measured
-> precision and recall, and its output recommendation replace this section.
+The enum-candidate check is removed from the basics
+(papers/2026-10-17-enum-candidate-redesign.md). The rule was redesigned with
+every term defined and the false classes turned into clauses. It was tuned
+on blackbird and measured on BRepGPU as held-out data:
+- **Edit-boundary tiers on BRepGPU:** 46% precise frozen, and 62% after a
+  fact-loader fix. The bar is no effective false positives.
+- **Remaining false findings:** a version number, a count and a bit mask.
+  Each is used exactly as an enum would be, so only a name rule would
+  separate them, and a name rule is a guess.
+- **Recall at the edit boundary:** 6.6% on blackbird.
+- **Jev's second label:** it agreed at chance (κ 0.17 and −0.01), so it
+  certified nothing.
 
-Settled regardless of the lane's numbers:
-- **It proposes and never gates.** A candidate is not a correctness
-  finding, so it never sets a non-zero exit (doctrine D5).
-- **At most one candidate per delta,** labelled `proposal`.
-- **Observed values are a lower bound on the domain.** A finding says
-  "values observed include …", gives the explicit values it saw, and asks
-  for the domain and the names. It never proposes `verbs::to` over the
-  observed set (checks B2, ergonomics M8).
-- **Subjects** are fields, globals and function returns, not parameters or
-  locals (doctrine D21).
-- **Recognized evidence:** literal-initialized `constexpr` constants and
-  existing enumerators count as literals (doctrine D4). Writing a value out
-  (egress) does not disqualify; only reading it back in is ingress
-  (ergonomics M8).
-- **Disappearance prints `!`.** A candidate that disappears because a
-  disqualifying use appeared prints `!`, not `-` (doctrine D4).
-- **Excluded or `outside`:** subjects in `extern "C"` types, in translation
-  units below C++26, or in code the path rule excludes are `outside`.
-  `volatile`, atomic and `sig_atomic_t` subjects are excluded (checks M5).
-- **Test code supplies no evidence.**
+It is not a correctness check (doctrine D5). The rule, its settled points
+(never gate; observed values are a lower bound), and the cheapest precise
+follow-up are in bead verbs-de3.35. That follow-up reports only subjects fed
+from an existing enum, which was 3 of 3 true on blackbird.
 
 ## 6. `verbs check`
 
 ### 6.1 Interface
 
 ```
-verbs scan  -p <build-dir> [--hypotheses]      # full analysis; lists claims with the boundary
+verbs scan  -p <build-dir>                     # full analysis; lists claims with the boundary
 verbs check -p <build-dir> [--changed <path>...]
 ```
 
@@ -595,7 +586,6 @@ the exit status (doctrine D18). The output text is not a versioned contract.
 |---|---|---|
 | 0 | Nothing gates | continue |
 | 1 | An escape or in-source silencing is present, or this edit lost a claim or changed a compile command or the path rule | the agent addresses it |
-| 3 | A decision was added or changed | Blackbird reverts the edit unless the operator approves (doctrine D3) |
 | 2 | No check ran; the reason is printed | the agent must not read silence as a pass (doctrine D25) |
 
 - **Findings gate by state, events once.** An escape, or a silencing
@@ -603,12 +593,8 @@ the exit status (doctrine D18). The output text is not a versioned contract.
   printed in full once, then as one `N unresolved` line (MiMo F6). Lost
   claims and compile-command or path-rule changes are events: they gate the
   run that sees them.
-- **Precedence: 2, then 3, then 1, then 0.** All findings still print. An edit
-  that adds both a decision and an escape exits 3, so the decision gate
-  cannot be bypassed (ChatGPT F18).
-
-Proposals never affect exit status. The `--hypotheses` listing exists for the
-precision calibration of §10.3; that is its only consumer (doctrine D27).
+- **Precedence: 2, then 1, then 0.** All findings still print. Exit 3 left
+  with decisions (§7), which also settles ChatGPT F18.
 
 ### 6.2 Verifying traces: what decides that a unit is re-checked
 
@@ -631,8 +617,8 @@ On every run:
    libc++ headers, 1,898 files and 19 MB, hash in 0.34 s wall. A unit whose
    trace mismatches, or whose negative probe now finds a file, is stale.
 3. **Re-extract** every stale unit. `--changed` only orders the work.
-4. **Cross-unit evaluation:** declaration and definition mismatches (§4.4),
-   and enum candidates (§5).
+4. **Cross-unit evaluation:** declaration and definition mismatches and
+   unanalyzed definitions (§4.4).
 5. **Delta** against the previous report (§6.5).
 
 Other cases:
@@ -702,9 +688,6 @@ verbs · 3 units re-checked · 1.8 s · build/debug
     static_cast<FrameKind>(raw_kind)
     fix: verbs::to<FrameKind>(raw_kind), keeping ErrorCode::unsupported on failure
 ! lost claim  Header::version  Bounded<1,5> -> std::uint8_t   include/x/header.hpp:12
-! decision added  Packet::kind  open_domain "producers own the domain"   src/packet.hpp:14
-~ proposal  Resource::ending_ (std::uint8_t): values observed include 0x00, 0x01, 0x02
-    this looks like a closed domain; if it is, declare it with VERBS_ENUM and give the full domain and names
 claims assume: no unwind mid-mutation · no moved-from use · single owner · one thread ·
   no call-out while broken · single-state · analyzed code is this database's units ·
   no UB outside vlib · hardening ≥ FAST · switch-enum and uninitialized are errors
@@ -714,17 +697,16 @@ claims assume: no unwind mid-mutation · no moved-from use · single owner · on
 |---|---|
 | `+` | new finding |
 | `-` | resolved finding |
-| `~` | changed evidence under an unchanged key, or a proposal |
-| `!` | lost claim, decision change, silencing, or something not analyzed |
+| `~` | changed evidence under an unchanged key |
+| `!` | lost claim, silencing, or something not analyzed |
 
 Rules:
-- **Order:** escapes, then lost claims, then silencing, then decisions, then
-  one proposal.
+- **Order:** escapes, then lost claims, then silencing.
 - **Caps:** at most 3 findings per file and 10 in total; the plan may
   re-tune both against agent transcripts. Withheld findings stay marked
   *unshown* and carry into the next delta until printed (checks M9).
 - **The boundary line** is printed whenever the delta reports a claim
-  change. A delta of proposals alone omits it.
+  change.
 - Each finding gives its evidence and one concrete fix. A fix never invents
   enumerator names or values.
 
@@ -750,52 +732,17 @@ Rules:
   measured on blackbird (bead verbs-de3.14), alongside the precision gate
   (§10.3).
 
-## 7. Decisions
+## 7. Decisions: not in the basics
 
-A decision records a verdict the code cannot express. The basics have one
-verdict:
+Decisions recorded verdicts on proposal subjects. With discovery removed
+(§5), nothing in the basics takes a decision, so `VERBS_OPEN_DOMAIN`, the
+exit-3 gate and the decision lifecycle leave with it (bead verbs-de3.35).
+Two results carry over to that bead:
+- **Placement** (operator decision, 2026-10-17): on the declaration.
+- **The gate must prevent, not merely detect** (doctrine D3).
 
-```cpp
-VERBS_OPEN_DOMAIN("producers own the domain; see provider_original.cpp:443")
-std::uint8_t kind = 0;
-```
-
-It means that this subject is deliberately not a closed domain, for the
-stated reason.
-
-**Placement (operator decision, 2026-10-17).** The decision goes on the
-declaration it concerns. Nearly every reader will be an LLM agent, and an
-agent about to change a declaration reads the file that holds it. A decision
-there is in view when it matters; a sidecar helps only an agent that already
-knows to look.
-
-**Spelling.** The macro expands to `[[clang::annotate("verbs:open_domain",
-why)]]`. It switches to a C++26 annotation when the pinned Clang supports
-P3394.
-
-**What was cut, and why:**
-- **The `seen(...)` list** repeated in source what verbs computes, and made
-  "append the new value" the cheapest way to silence a resurfacing
-  (ergonomics M9).
-- **`accepted_pending`** is planned work, which belongs in bd (doctrine
-  D15).
-- **`rejected`**: an obvious rejection signals a check defect. A non-obvious
-  one is an `open_domain` with a reason.
-
-**Gate.** Adding or changing a decision gives exit 3 (§6.1). Detecting the
-edit is not enough; the gate must prevent it. Blackbird reverts the edit
-unless the operator approves (doctrine D3). Commit authorship does not
-identify the author: every commit here is authored by the operator.
-
-**Scope.** A decision applies only to a proposal's raw subject (§5). It
-never covers an escape, a silencing or a lost claim (§2).
-
-**Lifecycle.** A decided subject gets no further proposals. A change to or
-removal of the decision prints `!`. Nothing else resurfaces it.
-
-**Not covered:** code the team cannot edit, such as vendored or generated
-code. That is the path rule's `outside`; a decision sidecar is bead
-verbs-de3.20.
+Escapes, silencings and lost claims are never waived; they are fixed in
+code (§2).
 
 ## 8. Toolchain
 
@@ -887,7 +834,6 @@ code exists (red first; doctrine D26).
   resolution recorded. No step depends on a model being available (ChatGPT
   F09). Every count includes n.
 - **Rules are tuned on one corpus and reported on another** (checks M6).
-- **Enum-candidate precision** comes from its lane (§5).
 - **Gate:** the hook is enabled only when escapes are 100% true on the seeded
   migration and the latency budget holds (§6.6).
 
@@ -902,17 +848,17 @@ supports the pinned Clang (verbs-b4x). Source mutants cover compile-time logic
 | Brief | Basics | Why |
 |---|---|---|
 | Delta daemon with clangd tiers | Stateless `verbs check` with verifying traces | Operator; push needs no residency; traces make it correct |
-| `.verbs/decisions.jsonl` | `VERBS_OPEN_DOMAIN("why")` on the declaration, gated | JSON rule; in view for the agent; gate prevents rather than detects |
+| `.verbs/decisions.jsonl` | No decisions in the basics | Nothing takes one once discovery is out (§5, §7) |
 | Annotations declare invariants | The vlib type is the declaration | No second declaration to drift |
 | `Bounded` widening only | Widening, checked `+=`/`-=`, `k`, `upto`, implicit egress | Loops and indices must read naturally |
 | UB in constant evaluation for bound overflow | `__int128` everywhere, with `static_assert` | Clear diagnostics; `%` and `+=` edge cases |
 | `VERBS_ENUM` positional | `name = value`, zero rule, reflection later | Wire domains |
 | `Refined`, `Id`, typestate, capabilities | Deferred (beads) | No corpus consumer; blackbird's `Id` is stronger |
 | Deny-list of escape constructs | Allowlist by AST meaning | Soundness tribunal |
-| Lint suppression honoured | Nothing silences a finding | Escapes are fixed in code; decisions apply only to proposals |
+| Lint suppression honoured | Nothing silences a finding | Escapes are fixed in code |
 | SQLite cache, preservation verdicts | Per-unit traces and facts | Nothing else to cache |
 | Visible-state class invariants | Value invariants in types | Reentrancy; claim-scope decisions |
-| Four lints | Escape check plus one advisory proposal | Basics first; precision |
+| Four lints | The escape check only | Basics first; the enum-candidate check was measured and missed the bar (§5) |
 | C++23 | C++26 (`-std=c++2c`) on the pinned Clang | Operator decision |
 
 ## 12. Open questions for the second tribunal
@@ -922,11 +868,9 @@ supports the pinned Clang (verbs-b4x). Source mutants cover compile-time logic
    exclude.
 2. Do verifying traces (§6.2) make incremental equal from-scratch under the
    generator's out-of-band changes?
-3. Is exit 3 (decision gate) enforceable in Blackbird without blocking
-   legitimate work?
-4. Does suspending the report on compile errors (§6.2) leave any path in
+3. Does suspending the report on compile errors (§6.2) leave any path in
    which a stale fact reads as a current claim?
-5. Does anything left in the basics lack a named consumer?
+4. Does anything left in the basics lack a named consumer?
 
 ## 13. Increments
 
@@ -938,7 +882,6 @@ The plan sequences these; listed here so the spec states what "done" means.
    migration (§1.1).
 2. **B: `Bounded`**, once a blackbird declaration is named (§3.3). Otherwise
    it moves to a bead.
-3. **P: enum-candidate proposals**, if the lane's precision justifies them.
 
 ## 14. Deferred beads named in this spec
 
@@ -965,5 +908,6 @@ The plan sequences these; listed here so the spec states what "done" means.
 | Facts shared across worktrees (constructive traces) | verbs-de3.32 |
 | Points-to narrowing of escape attribution | verbs-de3.33 |
 | Shared job slots across concurrent verbs processes | verbs-de3.34 |
+| Enum-domain discovery (scan-only) and decisions | verbs-de3.35 |
 | Mull on the pinned Clang | verbs-b4x |
 | Rust phase | verbs-4ox |
