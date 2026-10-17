@@ -371,3 +371,36 @@ Zero false escapes on 13 legitimate libc++-heavy programs. Same cost as v1.
   the storage, including allocator buffers (the pmr hole).
 
 No [lane] markers remain.
+
+## Round 2, MiMo: four missed cases in §4, confirmed and closed
+
+papers/2026-10-17-review-r2-mimo.md. 12 findings. I checked the four
+blockers on the pinned Clang with the escape-v2 prototype. Each forge ran
+under ASan and UBSan at -O2; cases are in
+context/prototypes/escape-v2/cases/r2_0*.cpp.
+
+| Finding | Result | Fix |
+|---|---|---|
+| R2-01: upcast to a non-vlib base, then `char*` store | forged 7, prototype 0 escapes. Confirmed | vlib-reachable classes: a base of any vlib-containing class anywhere in the program. Pointers to them are vprs, judged finally in the cross-unit step |
+| R2-02: unanalyzed callee with `const E*` / `span<E>` | not caught (the v2 prototype has no cross-unit step). Confirmed by reading | §4.4 uses vpr, const included |
+| R2-03: `std::move` returns a reference through the read-only sink | forged 7, prototype 0 escapes. Confirmed | the sink's return must be void, bool, arithmetic or enum; rule 7 states the library const-contract assumption |
+| R2-04: `memcpy` of `E*` into a `void*` slot | caught by the prototype; the spec text had dropped the paper's clause | pointer-to-vpr is a vpr; rule 4 covers vpr sources and destinations |
+
+Also adopted:
+- **R2-05:** affected types (source, destination, named, derived) feed the
+  attribution closure.
+- **R2-06:** a suspended report exits 2. This supersedes the Jev-round D25
+  fix that left the exit status unchanged; CUDA-style units now sit in the
+  path rule, so D25's concern is met another way.
+- **R2-09:** named trip and just-miss cases in §10.2.
+- **R2-08 and R2-11:** the prototype deviations are listed in §4.9, and
+  memory functions are matched by exact name.
+
+**Not adopted, needs the operator:** R2-10 asks to freeze the kill threshold.
+It stays "proposed" until the operator sets it.
+
+**Not a hole:**
+- `std::any` / `std::function` holding `E*` (R2-11). `any_cast` is
+  type-checked, and a closure keeps the static type.
+- `printf("%p")` being flagged is a prototype false positive. It is
+  noted for the implementation.

@@ -195,7 +195,9 @@ Every claim holds only under these rules.
    silencing `!` line (§4.6).
    - Code linked into the program from outside the database is assumed to
      touch vlib-containing objects only through functions that the analyzed
-     code declares.
+     code declares. It is also assumed never to write through a
+     pointer-to-const it receives, which is the C and C++ library contract
+     that the read-only sink (§4.1) relies on.
    - §4.4 checks those functions: a type that reaches one defined in no
      analyzed unit is `outside`.
 8. **No undefined behaviour outside vlib**: no out-of-bounds or
@@ -398,8 +400,17 @@ The vlib types in the basics are `Bounded` specializations and verbs enums
 Two transitive notions (papers/2026-10-17-escape-allowlist-v2.md):
 - **vlib-containing** (§2): the object representation holds vlib bytes.
   Recursion stops at pointers.
-- **vlib-pointer (vpr):** a pointer, reference or pointer-to-member to a
-  vlib-containing type, or a class or wrapper that holds one (`span<E>`,
+- **vlib-reachable class:** a vlib-containing class, or a base of one
+  anywhere in the analyzed program. A `Base*` can point into a `Derived`
+  that holds vlib bytes. Derived classes may be defined in other units, so
+  the set is final only in the cross-unit step (MiMo R2-01).
+- **vlib-pointer (vpr):** a pointer, reference or pointer-to-member whose
+  pointee is one of these:
+  - a vlib-containing type;
+  - a vlib-reachable class;
+  - itself a vpr (so `E**` is a vpr, MiMo R2-04).
+
+  A class or wrapper that holds a vpr is also a vpr (`span<E>`,
   `shared_ptr<E>`, `initializer_list<E>`). Recursion does not stop at
   pointers.
 
@@ -410,7 +421,10 @@ converts a vpr, so it is never touched.
    - the same type;
    - its cv-added form;
    - a class in the same hierarchy (`static_cast` or `dynamic_cast`; a wrong
-     downcast is UB, rule 8).
+     downcast is UB, rule 8). The result is still a vpr, because its class
+     is vlib-reachable, so a later erasure of the `Base*` is an escape.
+     Each unit records its erasures of class pointers, and the cross-unit
+     step re-judges them against the final vlib-reachable set.
 
    Every other conversion out of a vpr is an escape, implicit included:
    - to `void*` or a byte pointer (this covers `fread`, `recv` and `scanf`
@@ -431,7 +445,10 @@ converts a vpr, so it is never touched.
    **Read-only sink, the one exception.** An erased const pointer is a read
    when it is the *direct argument expression* of a call to a function
    declared outside the repository, whose parameter is pointer- or
-   reference-to-const, and whose return type is not a pointer. That admits
+   reference-to-const, and whose return type is `void`, `bool`, an
+   arithmetic type or an enumeration. A pointer, reference, iterator or
+   class return could hand the alias back: `std::move(reinterpret_cast<const
+   unsigned char&>(e))` returns a reference (MiMo R2-03). That admits
    `fwrite`, `write`, `memcmp`, a `(const void*, len)` hasher, and `os <<
    &e`. Once bound to a named variable, the pointer is no longer a direct
    argument, so `const_cast` paths (ChatGPT F02, MiMo F2) and hand-rolled
@@ -454,12 +471,17 @@ converts a vpr, so it is never touched.
    that needs an open allowlist of benign internals.
 3. **Bit reinterpretation.** `__builtin_bit_cast` whose source or result is
    vlib-containing or a vpr.
-4. **Raw byte writes.** `memcpy`, `memmove`, `memset` and their builtins
-   into vlib-containing storage. One exception: a `memcpy` or `memmove`
-   whose source and destination pointees are the same vlib-containing
-   type, with a constant length that is a whole multiple of its size. A
-   partial copy is an escape (ChatGPT F12). The arguments' implicit
-   `void*` conversions are judged here, once, not again by rule 1.
+4. **Raw byte writes and copies.** `memcpy`, `memmove`, `memset` and their
+   builtins, matched by exact name or builtin ID, never by substring.
+   - **Escape:** a call whose destination is vlib-containing storage or a
+     vpr object, or whose source is a vpr object. Copying an `E*` into a
+     `void*` slot is an escape (MiMo R2-04).
+   - **One exception:** a `memcpy` or `memmove` whose source and
+     destination pointees are the same type, with a constant length that is
+     a whole multiple of its size.
+   - A partial copy is an escape (ChatGPT F12).
+   - The arguments' implicit `void*` conversions are judged here, once, not
+     again by rule 1.
    `memset` to an in-domain value is still an escape. It is fixed in code.
 5. **Unions.** A user-declared union with a vlib-containing or vpr member,
    at any depth.
@@ -526,8 +548,9 @@ variables some analyzed unit defines. Code defined in no analyzed unit can
 write anything it can reach, so rule 7 is checked here, not assumed
 (soundness m3). A vlib-containing type has all its claims `outside` when one
 of these is declared in analyzed code but defined in no analyzed unit:
-- a function that takes or returns a non-const pointer or reference to the
-  type;
+- a function that takes or returns a vpr to the type, including a const
+  one. `const_cast` makes a const pointer writable, and `span<E>` is a vpr
+  (MiMo R2-02);
 - a variable of the type.
 
 The report names the declaration. A template instantiated only in unanalyzed
@@ -576,18 +599,26 @@ sees it.
 
 ### 4.8 Attribution
 
-Every escape is a conversion or write at a point where the static type of
-its source is known. It voids claims in two steps (ChatGPT F06, MiMo F5):
-1. It voids every **leaf vlib type** contained in that type.
+Every escape is a conversion or write at a point where the static types
+involved are known. Its **affected types** are these (MiMo R2-05):
+- the source's pointee type, for an erasure;
+- the destination's, for a re-typing (`void*` to `E*`) or a raw write;
+- both, when both are vlib-containing or vlib-reachable;
+- the named type, for rules 7, 9, 10 and 12–14;
+- for a vlib-reachable base, every analyzed class derived from it.
+
+It voids claims in two steps (ChatGPT F06, MiMo F5):
+1. It voids every **leaf vlib type** contained in an affected type.
 2. It voids every claim, program-wide, whose type contains one of those
    leaves.
 
 `memset(&packet, …)` on `struct Packet { E kind; }` voids every claim on `E`:
 `Packet::kind`, and a later `E copy = packet.kind`. A sibling `F other`
 keeps its claim.
-- An escape with no typed source voids every claim program-wide. That is an
-  `asm` `"memory"` clobber with no vlib operand.
-- A rule 7, 9, 10, 11 or 14 escape voids the named type's leaves.
+- An escape with no affected type voids every claim program-wide. Two cases
+  have none:
+  - an `asm` `"memory"` clobber with no vlib operand;
+  - a keyword macro (rule 11).
 - The escape-v2 lane proposed voiding only the unit for an erased sink. That
   is weaker than the type closure when one object is reached from several
   units, and it was not adopted.
@@ -627,6 +658,18 @@ Results for v2:
   - an allocator or pmr byte buffer written while it backs a live vlib
     object. Rule 3 now forbids keeping that writable alias.
 - **`start_lifetime_as`** is in rule 2, but it is not yet in libc++ 23.1.2.
+  The implementation does not match it until the pinned libc++ declares it.
+- **Where the prototype differs from this text** (MiMo R2-08, R2-11):
+  - it flags every non-`constinit` vlib static, where rule 12 is narrower,
+    so its tally counts o05 as caught;
+  - it does not handle `#undef` of vlib macros;
+  - it matches the memory functions by substring;
+  - it voids the whole unit for an erasure;
+  - it has no cross-unit step (v1 had one).
+
+  The implementation follows this text, not the prototype. The round-2
+  review confirmed R2-01 and R2-03 against it (prototype in
+  context/prototypes/escape-v2/, cases r2_01–r2_04).
 
 The prototypes are evidence for the rule, not the implementation. The
 implementation is written red-first against §10.2, and every case above
@@ -671,7 +714,7 @@ the exit status (doctrine D18). The output text is not a versioned contract.
 |---|---|---|
 | 0 | Nothing gates | continue |
 | 1 | An escape or in-source silencing is present, or this edit lost a claim or changed a compile command or the path rule | the agent addresses it |
-| 2 | No check ran; the reason is printed | the agent must not read silence as a pass (doctrine D25) |
+| 2 | No complete check: none ran, or compile errors suspended the report (§6.2). The reason is printed, and so are escapes found in the units that compiled. | the agent must not read silence as a pass (doctrine D25) |
 
 - **Findings gate by state, events once.** An escape, or a silencing
   construct in source, keeps exit 1 on every run until it is fixed. It is
@@ -718,7 +761,8 @@ Other cases:
     since those are real;
   - it prints one `! claims suspended: N units do not compile` line, with
     no claim lines, no `-` lines and no lost claims;
-  - it exits 1 when any escape was found, and otherwise 0.
+  - it exits 2, because the caller acts only on the exit status, and a
+    suspended run is not a pass (MiMo R2-06).
 
   The next run in which every unit compiles is complete, and it computes
   its delta against the last complete report. Facts from a failed unit are
@@ -902,7 +946,7 @@ code exists (red first; doctrine D26).
 
 | Fault class | Oracle |
 |---|---|
-| Missed or spurious escape | One case file per §4 rule clause, with expected findings in source comments, compared exactly (the IWYU style). Each clause has a case that trips it and one that just misses it. Every tribunal counterexample is a case. |
+| Missed or spurious escape | One case file per §4 rule clause, with expected findings in source comments, compared exactly (the IWYU style). Each clause has a case that trips it and one that just misses it. Every counterexample from the tribunals, the external reviews and escape-v2 is a case. Round 2 named four that confirm only with the cross-unit step or the revised rule text. Each forged 7 under ASan/UBSan at `-O2` with zero prototype findings, except where noted: an upcast to a non-vlib base, then a `char*` store; an unanalyzed callee taking `const E*` or `span<E>`; a `std::move` reference through the read-only sink, then `memset`; and `memcpy(&void_slot, &e_ptr)`, then `memset`, which the prototype caught and the spec text had dropped (MiMo R2-09). Their just-miss partners: a non-vlib upcast never erased; `fwrite(&e, …)`. A polymorphic `dynamic_cast` downcast is a just-miss (legitimate). |
 | Escape the rule does not know | **Audit build** (checks M3). vlib's `get()` checks its invariant at runtime instead of assuming it. For enums, which have no accessor, `verbs::name`, `std::to_underlying` through a vlib wrapper, and every migrated seam's re-encode check membership against expected sets written independently in the tests (ChatGPT F14). Migrated blackbird's test suite runs under ASan and UBSan. Any runtime violation without an escape finding is a missed escape. **Limit:** sanitizers never check enum membership for fixed-underlying enums, so an enum read no audit point observes goes unseen; the case files (row above) carry that class. |
 | Key instability | Metamorphic tests: reordering declarations, moving a function between units, and reformatting leave findings and keys unchanged. |
 | Incremental differs from scratch | After every generated sequence of changes, `verbs check` equals a fresh `verbs scan`. The generator includes out-of-band writes, created and deleted files, database changes, generated headers, and non-compiling intermediate states (checks M10). Only complete runs are compared; a suspended run must print no claim (§6.2). |
