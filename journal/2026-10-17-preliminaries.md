@@ -102,3 +102,29 @@ probe output. Archive SHA-256 rechecked; manifest entry merged. Summary:
   Warm clangd wins by 1.5-2.5x, and main-file reparse dominates, not tidy.
   Header-fanout edits are unmeasured; Oxcart and BRepGPU need their own
   configure runs to produce compile_commands.json, which the lane did not do.
+
+## Design draft
+
+design/SPEC.md drafts the basics from the brief, the four lane reports, and
+the operator's decisions. Main choices, each argued in the spec and offered
+to the tribunal:
+
+- The vlib type of a declaration is its invariant declaration; no invariant
+  annotation syntax. Operator principle, added mid-draft: annotations clarify
+  and never encumber. If a finding could only be silenced by an annotation
+  stating the obvious, fix the check.
+- Report states are holds / finding / decided / outside; no "unknown" for
+  examined declarations.
+- Bounded widens on binary ops and narrows on compound assignment with an
+  always-on check. C++26 contracts are unsuitable here because the `ignore`
+  semantic would let an out-of-range value break the representation
+  invariant and the accessor's [[assume]].
+- Enum ingress must be checked (to_enum); integer-to-enum casts are escapes.
+- Decisions live on the declaration (clang::annotate now, P3394 later) instead
+  of a file. This retires USR keying and orphans. [operator to decide]
+- verbs check tracks affected units through its own recorded include sets
+  and keeps per-unit facts files only; no preservation cache in the basics.
+- vlib basics keep macro fallbacks so they ship even if the C++26 Clang fork
+  proves too costly.
+
+Filed beads verbs-de3.17 to .25 for the cases the spec defers (§13).
