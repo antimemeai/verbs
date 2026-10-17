@@ -22,3 +22,7 @@ CMakeUserPresets.json
 /vendor/
 /composer.lock
 *.part
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
