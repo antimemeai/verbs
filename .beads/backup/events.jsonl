@@ -78,3 +78,5 @@
 {"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T16:45:33Z","event_type":"created","id":78,"issue_id":"verbs-de3.34","new_value":"","old_value":""}
 {"actor":"Patrick Beam","comment":"Added label: simplification","created_at":"2026-10-17T16:45:34Z","event_type":"label_added","id":79,"issue_id":"verbs-de3.34","new_value":null,"old_value":null}
 {"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T16:45:34Z","event_type":"label_added","id":80,"issue_id":"verbs-de3.34","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T17:11:50Z","event_type":"created","id":81,"issue_id":"verbs-de3.35","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T17:11:50Z","event_type":"label_added","id":82,"issue_id":"verbs-de3.35","new_value":null,"old_value":null}
