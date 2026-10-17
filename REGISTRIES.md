@@ -8,7 +8,7 @@ source preparation are separate states. Do not publish placeholder-only packages
 | GitHub | `antimemeai/verbs` | Public personal repository created |
 | Rust / crates.io | `verbs` | Published 0.1.0; public API confirms the version and repository |
 | Python / PyPI | `pverbs` | Published 0.1.0; wheel/sdist hashes confirmed by public API; fresh pip installation passes |
-| npm | `jsverbs` | API returned 404; package prepared; npm login required |
+| npm | `jsverbs` | Package contents and contract checks pass; awaiting saved workspace npm credential |
 | JSR | `@antimeme/verbs` | Operator created the package; zero versions so far; browser publication authorization next |
 | ConanCenter | `verbs` | Local package creation and consumer test pass; central submission deferred by operator |
 | vcpkg | `verbs` | Port draft prepared; package validation pending, central submission deferred by operator |
@@ -18,7 +18,7 @@ source preparation are separate states. Do not publish placeholder-only packages
 | Ruby / RubyGems | `verbs-agent` (provisional) | `verbs` is taken; alternative API returns 404; gem builds locally |
 | Erlang / Hex | `verbs_agent` (provisional) | `verbs` is taken; alternative API returns 404; OTP source and metadata prepared |
 | .NET / NuGet | `Verbs` | Flat-container API returns 404, exact-ID search empty; .NET Standard 2.0 project prepared |
-| Lua / LuaRocks | `verbs` | Absent from root manifest and manifest-5.1; development rockspec and pure Lua module prepared |
+| Lua / LuaRocks | `verbs` | Numbered rockspec installs from lua-v0.1.0; awaiting saved workspace luarocks credential |
 
 The five additional footprints passed [CI run 38990090145](https://github.com/antimemeai/verbs/actions/runs/38990090145):
 PHP/Ruby/Erlang/Dart/.NET contract checks, strict Composer validation, Ruby gem
@@ -44,6 +44,9 @@ pypi` reads the pypi key in ~/projects/.env and uploads the prepared artifacts.
 
 npm: `cd packages/js && npm login && npm publish --access public`. Dry run with
 `npm pack --dry-run`. Package includes ESM JavaScript and TypeScript declarations.
+The release utility also supports `python scripts/publish.py npm`, reading the
+npm key from ~/projects/.env through a temporary npmrc that references a child
+environment variable. It leaves no credential in the repository or user npmrc.
 
 JSR: the operator created @antimeme/verbs. Publish from packages/js with
 `deno publish` and complete browser authorization. All JSR names are scoped;
@@ -97,10 +100,15 @@ from an initial package upload.
 [Hex Erlang publishing](https://hex.pm/docs/rebar3-publish),
 [NuGet prefixes](https://learn.microsoft.com/en-us/nuget/nuget-org/id-prefix-reservation).
 
-Lua: packages/lua/verbs-scm-1.rockspec tracks main and installs the module using
-LuaRocks' builtin backend. Lua 5.1 through 5.5 and LuaJIT are supported. The
-existing v0.1.0 tag predates Lua; a numbered rockspec needs a new immutable
-source release. Local checks pass on Lua 5.4, 5.5.1, and LuaJIT. Rockspec lint,
+Lua: packages/lua/verbs-scm-1.rockspec tracks main. The numbered
+verbs-0.1.0-1.rockspec installs from the new lua-v0.1.0 source tag; that source
+archive's checksum is included. LuaRocks' builtin backend installs the module.
+Lua 5.1 through 5.5 and LuaJIT are supported. The older v0.1.0 tag predates Lua.
+scripts/check-lua-package.sh passes lint, archive download/install, and contract
+checks against the installed release module on Lua 5.4. The release utility
+supports `python scripts/publish.py luarocks`, using the official rockspec-only
+upload API and the workspace luarocks credential without persistent config.
+Local source checks pass on Lua 5.4, 5.5.1, and LuaJIT. Rockspec lint,
 installation, and installed-module checks pass on Lua 5.1 and 5.4 in
 [CI run 38995766475](https://github.com/antimemeai/verbs/actions/runs/38995766475).
 LuaRocks also supports

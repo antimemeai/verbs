@@ -2,11 +2,17 @@
 """Publish a prepared package using the operator's workspace .env credential."""
 
 import argparse
+import json
 import os
 from pathlib import Path
 import shlex
 import subprocess
 import sys
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -32,12 +38,90 @@ def credential(key):
     return matches[0]
 
 
+def run(command, token, env, cwd=ROOT):
+    result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True)
+    for output, stream in ((result.stdout, sys.stdout), (result.stderr, sys.stderr)):
+        stream.write(output.replace(token, "<redacted>"))
+    return result.returncode
+
+
+def publish_npm(token, dry_run):
+    with tempfile.TemporaryDirectory(prefix="verbs-npm-") as directory:
+        config = Path(directory) / "npmrc"
+        config.write_text('//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n')
+        config.chmod(0o600)
+        env = os.environ.copy()
+        env.update({
+            "NODE_AUTH_TOKEN": token,
+            "NPM_CONFIG_USERCONFIG": str(config),
+            "NPM_CONFIG_LOGS_MAX": "0",
+        })
+        command = ["npm", "publish", "--access", "public", "--registry", "https://registry.npmjs.org/"]
+        if dry_run:
+            command.append("--dry-run")
+        return run(command, token, env, ROOT / "packages/js")
+
+
+def publish_luarocks(token, dry_run):
+    # LuaRocks puts its key in the API URL. Keep this transport in-process so
+    # it never becomes a curl/process argument or a lasting CLI credential.
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(NoRedirect())
+    rockspec = ROOT / "packages/lua/verbs-0.1.0-1.rockspec"
+
+    def request(method, query=None, upload=None):
+        url = "https://luarocks.org/api/1/" + urllib.parse.quote(token, safe="") + "/" + method
+        if query:
+            url += "?" + urllib.parse.urlencode(query)
+        headers = {"User-Agent": "verbs-publication (github.com/antimemeai/verbs)"}
+        body = None
+        if upload:
+            boundary = "verbs-" + uuid.uuid4().hex
+            body = (
+                f'--{boundary}\r\nContent-Disposition: form-data; name="rockspec_file"; '
+                f'filename="{upload.name}"\r\nContent-Type: application/octet-stream\r\n\r\n'
+            ).encode() + upload.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+            headers["Content-Type"] = "multipart/form-data; boundary=" + boundary
+        try:
+            with opener.open(urllib.request.Request(url, data=body, headers=headers), timeout=60) as response:
+                result = json.load(response)
+        except urllib.error.HTTPError as error:
+            raise SystemExit(f"LuaRocks {method} returned HTTP {error.code}") from None
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            raise SystemExit(f"LuaRocks {method} request failed; no response details logged") from None
+        if result.get("two_factor_required"):
+            raise SystemExit("LuaRocks requires an additional two-factor authorization")
+        if result.get("errors"):
+            message = str(result["errors"]).replace(token, "<redacted>")
+            raise SystemExit("LuaRocks rejected " + method + ": " + message)
+        return result
+
+    status = request("check_rockspec", {"package": "verbs", "version": "0.1.0-1"})
+    if status.get("version"):
+        raise SystemExit("LuaRocks verbs 0.1.0-1 already exists; refusing to overwrite")
+    if dry_run:
+        print("LuaRocks accepted the name/version preflight; no files uploaded")
+    else:
+        result = request("upload", upload=rockspec)
+        if result.get("is_new") and not result.get("manifests"):
+            raise SystemExit("LuaRocks uploaded to a user manifest, but the root name was unavailable")
+        print("LuaRocks uploaded rockspec:", str(result.get("module_url", "")).replace(token, "<redacted>"))
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("registry", choices=("crates", "pypi"))
+    parser.add_argument("registry", choices=("crates", "pypi", "npm", "luarocks"))
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     token = credential(args.registry)
+    if args.registry == "npm":
+        return publish_npm(token, args.dry_run)
+    if args.registry == "luarocks":
+        return publish_luarocks(token, args.dry_run)
     env = os.environ.copy()
     if args.registry == "crates":
         env["CARGO_REGISTRY_TOKEN"] = token
@@ -60,10 +144,7 @@ def main():
         ]
     if args.dry_run:
         command.append("--dry-run")
-    result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True)
-    for output, stream in ((result.stdout, sys.stdout), (result.stderr, sys.stderr)):
-        stream.write(output.replace(token, "<redacted>"))
-    return result.returncode
+    return run(command, token, env)
 
 
 if __name__ == "__main__":
