@@ -158,3 +158,50 @@ specialization access); Bounded is not ready for index/loop code; Id adds
 nothing over blackbird's own; seen() on decisions is shadow accounting; the
 spec has no stated path to the kill criterion. Revision waits on the checks
 and pipeline report.
+
+## Spec revision 2 (tribunal fixes; two sections await research lanes)
+
+All four tribunal reports read in full. design/SPEC.md rewritten as revision
+2. Calls made (each cites its finding in the spec):
+
+- Kill path stated (doctrine D1): treatment is blackbird migrated at its
+  decoding seam; BRepGPU outside the basics; experiment bead verbs-de3.30.
+- Vocabulary cut to range and in{}: Id dropped (blackbird's is stronger),
+  Refined deferred to verbs-de3.28 with the tribunal's deep-value
+  requirements, const and mechanism sets cut (no consumer).
+- One ingress verb verbs::to<T> returning optional; libc++ hardening >= FAST
+  joins the claim boundary so `*` on empty traps. Boundary gains no-UB-
+  outside-vlib, -Werror=switch-enum/uninitialized (read from the compile
+  command), constinit statics.
+- Violations throw verbs::violation before store (strong guarantee); no hook.
+- Verbs enum = VERBS_ENUM only, with name = value support; zero rule; narrow
+  bit-fields are escapes.
+- Bounded: k<V>, upto(n), implicit egress, raw-operand +=/-=, all bound math
+  and checks in __int128, smallest signed-or-unsigned storage, deleted
+  conversions with reasons. Lands only when a blackbird declaration is named.
+- Escape check: allowlist direction recorded; rule text awaits the
+  escape-allowlist lane. Silencing list by effect; lost claims print `!`;
+  attribution coarse (type-wide).
+- Enum candidates: advisory, never gate, observed values are a lower bound;
+  rule text awaits the enum-candidate lane.
+- verbs check: verifying traces (command hash, inputs, negative probes) make
+  `--changed` a hint; USR/path keys; lock and atomic writes; compile-error
+  units keep facts; latency budget p95 <= 10 s with an honest pending line.
+- Decisions: VERBS_OPEN_DOMAIN("why") only; exit 3 gates additions on
+  operator approval.
+- Toolchain: Homebrew LLVM 23.1.2 with -std=c++2c (C++26 as far as upstream
+  goes; blackbird's move is a flag change). clang-p2996 kept for experiments;
+  contracts evaluation is verbs-de3.26.
+- Verification: enumeration-model bound oracle, named fuzz grid, literal enum
+  expectations, concept-form rejections, -verify for messages only, source
+  mutants for compile-time logic, audit build as an independent escape
+  oracle, generator with out-of-band changes.
+
+Beads verbs-de3.26 to .33 filed; verbs-de3.19 annotated.
+
+Incident: bd failed with "database verbs not found". Cause: verbs' Dolt
+server had stopped, and antimeme_site's bd server took the shared default
+port 3307, serving its own data directory. verbs' data was intact in
+.beads/dolt/verbs. Fix: dedicated `dolt.port: 13309` in .beads/config.yaml
+(blackbird and arconaut use 13308). Other repos on the default port remain
+exposed to the same collision.

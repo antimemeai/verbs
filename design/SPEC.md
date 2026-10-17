@@ -1,587 +1,709 @@
 # verbs basics: design specification
 
-Status: draft for tribunal, 2026-10-17. Scope: the basics only, per the
-basics-first principle (journal/2026-10-17-operator-decisions.md). Everything
-outside this scope is a bead under `verbs-de3` and is named here only to mark
-the edge. Inputs: design/verbs-design-brief.md (orientation, not settled), the
-four lane reports in papers/2026-10-17-*.md, and the operator's decisions in
-the journal. Where this spec departs from the brief, it says so and why.
+Status: revision 2, 2026-10-17, after the first tribunal. Scope: the basics
+only, per the basics-first principle (journal/2026-10-17-operator-decisions.md).
+Everything outside the basics is a bead and is named here only to mark the
+edge (§14).
 
-Marked **[decide]**: choices that need the operator. Marked **[toolchain]**:
-choices that depend on the C++26 Clang lane
-(papers/2026-10-17-cpp26-clang-toolchain.md, pending).
+**Inputs:**
+- design/verbs-design-brief.md (orientation, not settled);
+- the lane reports papers/2026-10-17-{literature-core, literature-agent-feedback,
+  reference-implementations, cpp-toolchain-burdens, cpp26-clang-toolchain}.md;
+- the tribunal reports papers/2026-10-17-tribunal-{soundness, checks,
+  doctrine, ergonomics}.md;
+- the operator's decisions in journal/.
+
+Findings are cited by report and ID: soundness B1, checks M7, doctrine D3,
+ergonomics S2.
+
+Marked **[lane]**: text that the escape-allowlist lane
+(papers/2026-10-17-escape-allowlist.md) or the enum-candidate lane
+(papers/2026-10-17-enum-candidate-redesign.md) replaces when it returns.
 
 ---
 
-## 1. What verbs does in the basics
+## 1. What the basics are, and what they are for
 
-verbs makes invariants of C++ values explicit in their types, so that
-violations are rejected by the compiler or at one checked entry point. It
-then tells an agent, at each edit, what changed about those claims. It has
-four parts:
+verbs makes invariants of C++ values explicit in their types, so that the
+compiler rejects violations or one checked entry point refuses them. It then
+reports to an agent, at each edit, what changed about those claims. The
+basics have three parts:
 
-1. **vlib**, a header library of closed value types: `Bounded`, `Refined`,
-   `Id`, and finite enums with checked ingress. Each carries one invariant in
-   its representation, so no operation outside the type can break it.
-2. **The escape check**, which finds code that bypasses vlib encapsulation or
-   silences verbs. Every claim in (1) rests on it.
-3. **The enum-candidate check**, the first discovery check. It finds integers
-   and strings used as small finite domains and proposes an enum with checked
-   ingress.
-4. **`verbs check`**, a stateless command that Blackbird's edit hook calls
-   with the changed paths. It prints what the edit added, resolved, or
-   decided, and the assumptions under which every claim holds.
+1. **vlib**, a header library with two families of closed value types:
+   finite enums with checked ingress (§3.2), and `Bounded` integers (§3.3).
+   Each carries one invariant in its representation.
+2. **The escape check** (§4). It finds code that bypasses vlib, weakens a
+   vlib type, or silences the warnings vlib relies on. Every claim in (1)
+   rests on it.
+3. **`verbs check`** (§6), a stateless command run after each edit. It prints
+   what the edit added, resolved, weakened or decided.
 
-There is no daemon, no database, no LLM dependency, and no annotation syntax
-for invariants in the basics: the vlib type of a declaration *is* its
-invariant declaration.
+There is also one discovery check, enum candidates (§5). It proposes and
+never gates.
 
-**Annotations clarify; they never encumber.** Where the meaning is
-self-evident from the code, there is no annotation. verbs asks for one only
-to record something the code cannot say, such as the rationale of a decision
-(§7). Corollary: if a finding could only be silenced by an annotation that
-states the obvious, the check is wrong. Fix the check; don't ask for the
-annotation.
+There is no daemon, no database and no LLM dependency. There is no
+annotation syntax for invariants either: the vlib type of a declaration *is*
+its invariant declaration.
+
+**Annotations clarify; they never encumber.** Where the meaning is evident
+from the code, there is no annotation. verbs asks for one only to record what
+the code cannot say: a decision's rationale (§7). If a finding could only be
+silenced by an annotation that states the obvious, the check is wrong. Fix the
+check; don't ask for the annotation.
+
+### 1.1 How the basics reach the kill criterion
+
+The kill criterion: verbs must meaningfully reduce edits-to-detection for a
+coding agent. The basics detect almost nothing in code that does not use vlib,
+so the treatment is a **migration** (doctrine D1).
+
+- **Corpus:** blackbird only. BRepGPU is C++17 with an `extern "C"` interface
+  and a CUDA backend (doctrine D1, ergonomics B-excerpt). It cannot hold vlib
+  types without raising its standard and changing its ABI. It is outside the
+  basics, except as input for measuring the enum-candidate check's precision.
+- **First migration:** blackbird's decoding seam.
+  - `Fields::get_enum<E>()` wraps `verbs::to<E>` and throws blackbird's
+    `Error{ErrorCode::corrupt}`.
+  - It replaces the hand-guarded integer-to-enum casts, for example
+    src/journal.cpp:278-281, src/retained_events.cpp:525-531 and :580-586.
+  - `PhaseKind` replaces the raw `std::uint8_t kind` passed at 31 call sites
+    (ergonomics, Adoption).
+- **The migration is blackbird's work and the operator's call.**
+  Blackbird's edit hook does not exist yet (doctrine Q6.6); adding it is
+  blackbird work too.
+- **Defect classes the basics can detect in migrated code:**
+  - an ingress guard removed, or drifting from the enum definition
+    (journal.cpp:278 hard-codes `{1,2,4,65535}` apart from `FrameKind`);
+  - an enumerator added without a matching ingress;
+  - a raw integer-to-enum cast added beside `verbs::to`;
+  - a vlib type downgraded to a raw integer (§4.3);
+  - writes that bypass the representation (§4.1).
+- **Expected result, stated before the experiment:** a measurable effect on
+  those seeded classes and on agent-introduced faults at migrated seams, and
+  none on generic mutants. If the effect on seeded classes is not meaningful,
+  stop and rethink (brief §10). The experiment is bead verbs-de3.30.
 
 ## 2. The claim
 
 verbs states claims in one form:
 
-> Every value of declaration D satisfies predicate P, by mechanism M, under
-> the claim boundary.
+> Every value of declaration D satisfies predicate P, under the claim boundary.
 
-- **D** is a declaration: a field, variable, parameter, or function return.
-- **P** is one of the basics vocabulary (§2.1).
-- **M** is one of `representation`, `typecheck`, `construction` (§2.2).
+- **D** is a field, a variable with static, thread or automatic storage, or
+  a function return, whose type is **vlib-containing**. A vlib-containing
+  type is a vlib type, or an array, class (by member or base), or standard
+  wrapper (`optional`, `pair`, `tuple`, `array`, `variant`, `expected`) of a
+  vlib-containing type. This is transitive (soundness B2).
+- **P** is `range(lo, hi)` for `Bounded<lo, hi>`, or `in{v1..vn}` for a
+  verbs enum.
 
-verbs reports each declaration it examines in exactly one state:
+`kind`, `refined` and `const` are not in the basics vocabulary. `Id` and
+`Refined` have no consumer in the corpus (ergonomics M5, doctrine D12), and
+`const` has no check behind it (doctrine D16). See §14.
+
+Each examined declaration is in exactly one state:
 
 | State | Meaning |
 |---|---|
-| `holds` | D's type carries P, and no escape in the analyzed code touches D's values. |
-| `finding` | A check found a concrete defect or candidate, with its evidence. |
-| `decided` | A recorded decision covers the finding (§7). |
-| `outside` | D is outside the claim boundary, with the reason. |
+| `holds` | D's type carries P, its translation unit meets the claim boundary, and no escape affects D's type (§4.4). |
+| `finding` | An escape, a weakening or a silencing affects D, with evidence. |
+| `decided` | A decision (§7) covers a finding on D. |
+| `outside` | D is outside the claim boundary. The report names the rule that excludes it. |
 
-There is no `unknown` state for declarations verbs examined. A case it cannot
-judge falls outside the claim, and the report names the boundary rule that
-excludes it.
+There is no `unknown` state. Mechanism sets and runtime-check counts are not
+kept, because nothing reads them (doctrine D7). The set of `holds` claims is
+kept only as the baseline that detects lost claims (§4.3).
 
-### 2.1 Basics predicate vocabulary
+### 2.1 Claim boundary
 
-| Predicate | Carried by | Example |
-|---|---|---|
-| `range(lo, hi)` | `Bounded<lo, hi>` | retries in 0..5 |
-| `in{v1..vn}` | `enum class` with checked ingress | mode in {Idle, Armed, Firing} |
-| `kind(Tag)` | `Id<Tag, Rep>` | a UserId is never an OrderId |
-| `refined(pred-id)` | `Refined<T, Pred>` | a non-empty, sorted span |
-| `const` | `const` declaration | owner never changes after construction |
+Every claim holds only under these rules.
+- `verbs scan` prints all of them with every claim listing.
+- A delta prints them whenever it reports a claim change (§6.5).
+- README.md carries them.
+- Rules marked **(read)** are checked from the compile command; a translation
+  unit that fails one has all its claims `outside`.
 
-`refined` is the one open-ended entry. Its predicate is an opaque named C++
-function, checked once at construction. verbs records its identity, not its
-logic. Richer predicate logic belongs to the future Becoming project and is
-not part of verbs.
-
-A cross-field invariant within one object is expressed in the basics only as
-a whole-value refinement: an immutable aggregate wrapped in `Refined`, which
-is replaced wholesale rather than mutated field by field. Mutable owners with
-cross-field invariants need static checking of each mutator, which is
-deferred (bead).
-
-### 2.2 Mechanisms
-
-| Mechanism | What enforces P | When a violation is caught |
-|---|---|---|
-| `representation` | The type cannot hold a value violating P | Never representable |
-| `typecheck` | The compiler rejects code that could produce a violating value | Compile time |
-| `construction` | The single entry point checks P and refuses violating input | Runtime, at ingress only |
-
-These are not ranked by an integer. A report shows the set of mechanisms
-behind each claim. Consumers decide what is strong enough. The brief's
-`[[assume]]` rule holds: vlib emits `[[assume(P)]]` only inside its own
-accessors, where every path into the representation was checked.
-
-### 2.3 Claim boundary
-
-Every claim holds only under these assumptions. `verbs check` prints them in
-the footer of every report (§6.4).
-
-1. No exception unwinds mid-mutation (bead: unwind preservation).
-2. No moved-from object is used (bead: moved-from weakening).
-3. An invariant belongs to exactly one declaration and its type. Mutation
-   goes only through that type's operations.
-4. The owner is used from one thread at a time. Lock-scoped and lock-free
-   cases are outside the claim, and memory ordering is never claimed.
-5. No call to unowned code happens while an invariant is temporarily broken.
-   vlib types never break theirs mid-operation.
-6. Single-state predicates only: nothing relates the value before a mutation
-   to the value after, except `const`.
-7. The analyzed code is all the code. A translation unit outside the
-   compilation database can hold escapes verbs never saw. The report names
-   the database it used.
+1. **No exception unwinds mid-mutation of user code.** vlib's own operations
+   check before they store, so they give the strong guarantee (§3.1). Bead
+   verbs-de3.11.
+2. **No moved-from object is used.** Bead verbs-de3.12.
+3. **Single owner.** An invariant belongs to one declaration and its type,
+   and mutation goes only through that type's operations.
+4. **One thread at a time.** Lock-scoped and lock-free cases are outside the
+   claim, and memory ordering is never claimed.
+5. **No call to unowned code happens while an invariant is temporarily
+   broken.** vlib never leaves one broken.
+6. **Single-state predicates only.**
+7. **The analyzed code is the preprocessed code of the compilation database's
+   units under its configuration.** A unit outside the database can hold
+   escapes verbs never saw. The report names the database.
+8. **No undefined behaviour outside vlib**, in particular no out-of-bounds or
+   out-of-lifetime access. verbs does not check this. Sanitizers and library
+   hardening are the mechanisms (soundness M1).
+9. **(read) Library hardening is at least FAST**
+   (`_LIBCPP_HARDENING_MODE_FAST`), so `*` on an empty `std::optional`
+   traps rather than producing an unchecked value (soundness M2, doctrine D13).
+10. **(read) `-Werror=switch-enum` and `-Werror=uninitialized` are in effect**
+    (soundness M3).
+11. **Static and thread-storage vlib-containing objects are `constinit`**, or
+    their claims are `outside` (soundness M3).
 
 ## 3. vlib
 
-vlib is header-only C++26 in namespace `verbs`. The type rules below are the
-specification. The code fragments show shape, not final source.
+vlib is header-only, compiled as C++26 (`-std=c++2c`) on the pinned Clang
+(§8), in namespace `verbs`. The type rules are the specification; code
+fragments show shape only.
 
-### 3.1 `Bounded<Lo, Hi>`
+### 3.1 Rules common to every vlib type
+
+- **One ingress verb.** `verbs::to<T>(x)` returns `std::optional<T>`. It is
+  the only runtime path from an unchecked value into a vlib type
+  (ergonomics S5). Rule 9 makes `*` on an empty result trap.
+- **Violations throw.** `verbs::to` never throws. The checked compound
+  operations (§3.3) throw `verbs::violation`, which derives from
+  `std::logic_error`, before anything is stored. The object is unchanged
+  (strong guarantee).
+  - In a `noexcept` function this terminates.
+  - There is no user hook and no build knob, so a handler cannot return
+    (doctrine D23, checks m8).
+  - `verbs::violation` carries the type and predicate in its message,
+    never the value.
+- **No default constructor** on any vlib type. A declaration must say its
+  value.
+  - Consequence (ergonomics M4): `vector(n)`, `resize`, `map::operator[]` and
+    value-initialized aggregates are unavailable.
+  - Idioms: `try_emplace(key, value)`, construction from a full value,
+    `std::optional<T>` where "unset" is a real state.
+- **Deleted conversions carry their reason** (C++26 `= delete("…")`).
+  Each common mistake gives one error and one note naming the right spelling,
+  and `-verify` pins each message (§10.1, ergonomics M2).
+- **vlib's stored members are private**, and vlib declares no friends outside
+  `namespace verbs::detail`.
+
+### 3.2 Verbs enums
+
+A **verbs enum** is an enumeration declared with `VERBS_ENUM`. Plain
+`enum class` declarations are not verbs enums, so blackbird's 109 enums and 27
+guarded casts are not findings on day one (checks M3, doctrine D22).
+
+```cpp
+VERBS_ENUM(PhaseKind, std::uint8_t,
+    assembly = 1, retry_group, attempt, retry_wait, adapter, decode,
+    preview_feed, presentation, receipt, acceptance, colleague_prepare,
+    colleague_transport, sse_event, preview_event)
+```
+
+- **Explicit values, gaps, aliases and negative values are allowed.** The
+  macro emits the `enum class` verbatim and the exact value and name arrays.
+  It uses a bounded FOR_EACH of up to 64 enumerators (doctrine D6, ergonomics
+  M6).
+- **Ingress:** `verbs::to<PhaseKind>(raw)` accepts exactly the listed
+  values. `verbs::to<PhaseKind>(std::string_view)` accepts exactly the names.
+- **Egress:** `std::to_underlying`, and `verbs::name(e)`.
+- **The zero rule.** A verbs enum whose values exclude 0 can still be made to
+  hold 0 by value- or zero-initialization: `E{}`, `Node{}`,
+  `map::operator[]`, static storage. Every such initialization outside vlib
+  is an escape (§4, soundness M4, ergonomics M7). An enum that does list 0
+  has no such escape.
+- **Bit-fields** of a verbs enum narrower than its value range are an escape
+  (soundness M4).
+- **Exhaustiveness** comes from rule 10 (`-Werror=switch-enum`).
+- **Reflection** (`std::meta::enumerators_of`) will replace the macro's
+  arrays when the pinned Clang has P2996. The macro's syntax does not change
+  (bead verbs-de3.27).
+
+### 3.3 `Bounded<Lo, Hi>`
 
 An integer whose value is always in `[Lo, Hi]`.
 
-**Bounds.** `std::int64_t` in the basics. Larger bounds and unsigned values
-above `INT64_MAX` are deferred (bead). Storage is the smallest signed type
-that holds `[Lo, Hi]`. An empty domain (`Lo > Hi`) is a compile error.
+**Bounds and storage.**
+- Bounds are `std::int64_t`; wider bounds are bead verbs-de3.18.
+- Storage is the smallest signed or unsigned type that holds `[Lo, Hi]`
+  (ergonomics S7).
+- `Lo > Hi` is a compile error.
+- Every bound computation, constraint and runtime check is done in
+  `__int128`. A result bound outside `int64_t` fails a named `static_assert`.
+  This includes the `+=` constraint (soundness M6, ergonomics m2) and `%` and
+  `/` (soundness M5: `INT64_MIN % -1`).
 
-**Ingress.** There is no constructor from a raw integer. Values enter only
-two ways:
-- `Bounded::lit<V>()`, which is consteval and rejects out-of-range `V` at
-  compile time (`typecheck`);
-- `Bounded::make(v)`, which returns `std::optional<Bounded>` and checks
-  at runtime (`construction`).
+**Constants.** `verbs::k<V>` is a `Bounded<V, V>`. It widens to any range
+containing `V`, so `Count total = verbs::k<0>;` and `i += verbs::k<1>;` work,
+while `Bounded<0, 5> x = verbs::k<7>;` is a compile error that names the
+constant (ergonomics S1, m4).
 
-**No default constructor.** A declaration must be initialized explicitly.
-Defaulting to `Lo` or to 0 would invent a value the author never chose.
+**Ingress.** `verbs::to<Bounded<L, H>>(x)` from any integral or any
+`Bounded`. No constructor takes a raw integer.
 
-**Widening is implicit, narrowing never.** `Bounded<A, B>` converts to
-`Bounded<C, D>` exactly when `C <= A && B <= D`.
+**Widening is implicit and narrowing is never implicit.** `Bounded<A, B>`
+converts to `Bounded<C, D>` exactly when `C <= A && B <= D`. Narrowing goes
+through `verbs::to`, or through a checked compound operation.
 
-**Arithmetic widens.** `x + y` for `Bounded<a, b>` and `Bounded<c, d>` has
-type `Bounded<a + c, b + d>`. Subtraction, multiplication and negation follow
-interval arithmetic. Division and remainder exist only when the divisor's
-range excludes 0. Result bounds are computed in `__int128` with an explicit
-`static_assert` when they leave `int64_t`. Unlike the brief's sketch, this
-does not rely on undefined behaviour making constant evaluation fail
-(bounded::integer's approach, `quarantine/bounded-integer/source/bounded/arithmetic/plus.cpp`).
-The runtime computation cannot overflow, because the result type's range
-holds every possible result.
+**Egress is implicit.** `Bounded<Lo, Hi>` converts implicitly to any
+non-`bool` integral type that holds `[Lo, Hi]` (ergonomics S3, B2).
+Subscripts, stores into `uint32_t` and `switch` therefore need no cast under
+`-Wconversion -Wsign-conversion`. `get()` returns the stored value and carries
+`[[assume(Lo <= v && v <= Hi)]]`; `get()` is vlib's only `[[assume]]`.
 
-**The accumulator problem, and its rule.** Pure widening cannot type
-`sum = sum + x` in a loop: the right side has a wider type than `sum`
-(core literature §7, Wuffs). The basics add one rule:
-- **Compound assignment narrows with an unconditional check.** `sum += x`
-  compiles whenever the intervals overlap. It checks that the result fits
-  and calls the verbs violation handler if not. The handler never returns.
-- Plain `sum = sum + x` does not compile. The diagnostic names `+=` and
-  `verbs::narrow`.
-- `verbs::narrow<B>(x)` returns `std::optional<B>` for code that handles
-  the failure.
-- `verbs::clamp<B>(x)` saturates explicitly.
+**Arithmetic widens.**
+- `+`, `-`, `*` and unary `-` follow interval arithmetic.
+- `/` and `%` exist only when the divisor's range excludes 0, and they are
+  computed in `__int128`.
+- Result bounds are named constants, so diagnostics print `hi aka 10` rather
+  than the expression (ergonomics M2).
+- Operators are free templates.
 
-A compound assignment is a `construction` point. The report counts it as a
-runtime check, not as typecheck.
+**Checked compound assignment.**
+- `x += y` and `x -= y` accept a `Bounded` or a raw integral `y`
+  (ergonomics S4, M3).
+- The constraint is that the intervals can overlap; for a raw `y`, its
+  type's range.
+- The result is computed in `__int128` and checked against `[Lo, Hi]` before
+  the store. Out of range, it throws `verbs::violation` and the object is
+  unchanged.
+- This is the accumulator rule (core literature §7, Wuffs): plain
+  `x = x + y` does not compile, and its deleted conversion names `+=` and
+  `verbs::to`.
 
-**Why not C++26 contracts for this check:** P2900 lets the build select the
-`ignore` evaluation semantic. An ignored check would store an out-of-range
-value, which breaks the representation invariant and makes the accessor's
-`[[assume]]` undefined behaviour. Representation invariants therefore use
-vlib's own always-on check. Contracts are reserved for preconditions where
-`ignore` is an acceptable build choice.
-
-**Access.** `get()` returns `std::int64_t` and carries
-`[[assume(Lo <= v && v <= Hi)]]`. The stored member is private.
-bounded::integer makes it public for use as a non-type template parameter.
-vlib chooses encapsulation; `lit<V>` covers compile-time use.
-
-**Comparison** with any `Bounded` and with raw integers. Comparison is not
-ingress.
+**No `++` or `--`.** Loops use `verbs::upto(n)` (ergonomics S2, B1). For `n`
+of type `Bounded<L, N>` with `L >= 0`, it yields `Bounded<0, N-1>` values.
+The past-the-end value lives inside the iterator, never in the loop variable.
 
 ```cpp
-template <std::int64_t Lo, std::int64_t Hi>
-class Bounded {
-public:
-    template <std::int64_t V> requires (Lo <= V && V <= Hi)
-    static consteval Bounded lit() noexcept;
-    static constexpr std::optional<Bounded> make(std::integral auto v) noexcept;
-    template <std::int64_t C, std::int64_t D> requires (C <= Lo && Hi <= D)
-    constexpr operator Bounded<C, D>() const noexcept;
-    constexpr std::int64_t get() const noexcept;
-    template <std::int64_t A, std::int64_t B>
-        requires (Lo <= Hi + B && Lo + A <= Hi)   // the result range can overlap [Lo, Hi]
-    constexpr Bounded& operator+=(Bounded<A, B> y) noexcept;   // checked narrowing
-    Bounded() = delete;
-    Bounded(std::integral auto) = delete;
-private:
-    rep v_;
-};
+Count total = verbs::k<0>;
+for (auto e : verbs::upto(edge_count)) {   // e : Bounded<0, MAX - 1>
+    offsets[e] = total;                    // implicit egress
+    total += counts[e];                    // checked: never exceeds MAX
+}
 ```
 
-### 3.2 `Refined<T, Pred>`
+**Mixed ranges.** `c ? a : b` and `std::max(a, b)` over different ranges
+need one side widened to the common range explicitly (ergonomics m1). There
+is no `common_type` specialization until the corpus asks for one.
 
-A `T` that satisfied `Pred` at construction and cannot be mutated afterwards.
+**Consumers.** None is named in blackbird yet (doctrine D12). Enums are the
+first migration. `Bounded` lands when a named blackbird declaration needs it:
+candidates are the limit and count fields such as `limits_.max_causal_depth`.
+If the plan finds none, `Bounded` moves to a bead.
 
-- `Refined::make(T v)` returns `std::expected<Refined, Violation>`.
-- `get()` returns `const T&`. There is no mutable access, and replacement is
-  by assignment from another `Refined`.
-- `Pred` must satisfy `verbs::named_predicate`: an empty, default-constructible
-  type with a `static constexpr bool operator()(const T&) noexcept` and a
-  stable identity. Lambda closure types fail the concept, so the brief's ban
-  on lambda predicates is enforced by the type system rather than by review.
-- **Identity.** **[toolchain]** With reflection, the identity is the
-  predicate's fully qualified name (`std::meta::display_string_of`).
-  Without it, `Pred::id` is a required `static constexpr std::string_view`.
-- `Violation` carries the predicate identity and never the value. This keeps
-  the property of the existing `check()` placeholder that values never leak
-  into errors.
+## 4. The escape check **[lane]**
 
-### 3.3 `Id<Tag, Rep>`
+> **[lane] escape-allowlist.** This section states the direction the
+> tribunal converged on. The lane's rule text, its grounding in Clang's AST
+> and its confusion matrix replace §4.1–4.2.
 
-A strong typedef: an `Id<A>` is never an `Id<B>`. It has explicit
-construction from `Rep`, `get()`, equality and ordering, and no arithmetic.
-Kinds with arithmetic, such as point and difference pairs
-(strong_type's `affine_point`/`difference`, timestamp and duration), are
-deferred (bead).
+### 4.1 Representation escapes (direction)
 
-### 3.4 Finite enums with checked ingress
+The rule is an allowlist judged on meaning, not a list of spellings
+(soundness B1–B7, checks B3, M1). Outside vlib's own headers, a
+vlib-containing object may be:
+- created by vlib's factories, by `verbs::k`, or by vlib arithmetic;
+- copied or moved from a valid object of the same type, including through
+  `memcpy`, `std::copy` or `bit_cast` *from a same-type source*;
+- read, including through a `const` byte view.
 
-The invariant `in{...}` needs two things C++ does not supply together: an
-exact list of the domain, and a checked path from raw values into it.
-`static_cast<Mode>(7)` creates a `Mode` outside the declared enumerators, so
-an `enum class` alone does not carry the invariant.
+Everything else that writes, creates or reinterprets such an object is an
+escape. The tribunal's counterexamples set the lower bar for what the rule
+must catch:
+- **untyped pointers:** conversion of a pointer to vlib storage into a
+  non-const untyped pointer, implicit or explicit (`fread`, `read`,
+  placement new, `start_lifetime_as`, `launder`, `void*` helpers);
+- **byte-level writes:** unions and bit-casts at any nesting depth;
+- **enum value creation:** integral conversions into a verbs enum, by any
+  spelling including list-initialization; value- or zero-initialization
+  under the zero rule; narrow bit-fields;
+- **private access:** declarations or specializations in `namespace verbs`
+  written outside vlib, except `VERBS_*` expansions; naming a private vlib
+  member, including through explicit instantiation; keyword macros
+  (`#define private public`, from source, `-D` or `-include`);
+- **`asm`:** statements with vlib-containing outputs, or a `"memory"`
+  clobber;
+- **cross-unit mismatch:** an external-linkage name declared with different
+  types or definitions in two units, where one is vlib-containing (soundness
+  B6). This is a cross-unit fact (§6.3).
 
-- **Domain.** **[toolchain]** With reflection, a plain `enum class` is
-  enough, and `verbs::enumerators<E>` comes from
-  `std::meta::enumerators_of`. Without it, `VERBS_ENUM(Mode, std::uint8_t,
-  Idle, Armed, Firing)` declares the enum and its value and name arrays. That
-  is the brief's macro, needed only until reflection is available.
-- **Ingress.** `verbs::to_enum<E>(raw)` returns `std::optional<E>` after a
-  membership check (`construction`). `verbs::from_string<E>(sv)` does the
-  same for names.
-- **Exhaustiveness.** Consumers build with `-Werror=switch-enum`.
-- **Escapes.** The escape check flags `static_cast`, C-style casts and
-  `std::bit_cast` from integers to a verbs-domain enum outside `to_enum`.
+Library internals are judged at the typed API boundary, never inside the
+library. Which files count as library is decided by verbs' path rule, never
+by Clang's system-header flag (checks M1, soundness M9).
 
-### 3.5 What vlib does not have in the basics
+### 4.2 Silencing escapes
 
-The brief's Consumed-analysis typestate, phantom typestate, TSA authority
-capabilities, FSM tables and two-state predicates are all deferred (beads).
-vlib in the basics is exactly §3.1–3.4 and the violation handler.
+verbs honours no suppression comment; only decisions (§7) silence it (checks
+M2). These are silencing findings:
+- a change to the diagnostic state of a warning the boundary relies on
+  (rules 9–10), by any pragma spelling (`clang`, `GCC`, `_Pragma`);
+- `#pragma clang system_header` or a line marker in a repository file;
+- a repository include directory moved to `-isystem`;
+- a compile-flag change that removes rule 9 or 10 (`-Wno-*`, `-w`, a removed
+  `-Werror=`);
+- `[[assume]]`, `__builtin_assume` or `__builtin_unreachable` outside vlib;
+- a change to verbs' path rule (§6.3).
 
-## 4. The escape check
+### 4.3 Weakening
 
-Every `holds` claim in §2 is true only if nothing bypasses vlib's
-encapsulation. The escape check finds code that does. A `finding` from it
-names the construct, the declaration whose claim it voids, and the location.
+A declaration that had a `holds` claim in the previous report and now has
+none is a **lost claim** (doctrine D2, checks M2). Examples: its type changed
+to a raw integer, its `Bounded` range widened, or its verbs enum gained a
+value. A lost claim prints `!`, even when the change is intended, so that a
+reader sees it.
 
-**Bypasses of representation:**
-- `const_cast`, `reinterpret_cast`, C-style casts or `std::bit_cast` whose
-  source or target involves a vlib type or a verbs-domain enum;
-- `memcpy`, `memmove`, `memset` or a `std::byte` view writing into a vlib
-  object;
-- a union member of vlib type;
-- integer-to-enum casts outside `verbs::to_enum` (§3.4).
+### 4.4 Attribution
 
-**Silencing:**
-- `NOLINT` comments naming verbs, and `#pragma clang diagnostic` that
-  disables `-Wswitch-enum`, `-Wconversion` or verbs-related warnings;
-- `[[assume]]` written outside vlib;
-- changes to verbs configuration or decision records (§7).
+Finding the exact declaration an escape touches needs alias analysis, which
+the basics do not have. So an escape voids the claims of every declaration of
+the affected vlib-containing type, program-wide. If the type cannot be
+determined, as with a `void*` sink, it voids every claim in its translation
+unit (soundness M7). Escapes are rare, so this coarseness costs little.
+Narrowing it needs points-to analysis (bead verbs-de3.33).
 
-These come from the agent-feedback lane: push feedback raises gaming
-pressure, and suppressions are the common gaming move. Silencing findings are
-reported in every delta, whoever added them.
+## 5. Enum candidates **[lane]**
 
-**Precision bar.** The escape check must have zero effective false positives
-on vlib-using code, because an agent acts on every finding (Sadowski et al.;
-core literature §9). It matches syntax with full type information, so it can
-reach that bar. A construct that cannot be judged, such as a cast through
-`void*` in a template that is never instantiated, is not reported as an
-escape. It is reported as `outside`, with the reason.
+> **[lane] enum-candidate redesign.** The lane's precise rule, its measured
+> precision and recall, and its output recommendation replace this section.
 
-## 5. The enum-candidate check
-
-The first discovery check. Kind discovery follows once its interaction
-definition is designed (bead; core literature §1, Lackwit's 65% collapse).
-
-**Subject:** a declaration (field, variable, parameter, or function return)
-of integer type, or of `std::string`, `std::string_view` or `const char*`.
-
-**Evidence collected per subject, across all analyzed translation units:**
-- the set of literal constants it is compared against (`==`, `!=`, `case`
-  labels);
-- the set of literal constants assigned or initialized into it;
-- the set of functions containing those sites;
-- **uses that disqualify it** ("escapes" in the brief):
-  - arithmetic other than comparison;
-  - passing it to a function outside the analyzed code;
-  - taking its address or a non-const reference to it;
-  - streaming or serialization calls;
-  - comparison against a non-literal value.
-
-**Rule.** The subject is a candidate when:
-1. the union of literal sets has between 2 and 16 values;
-2. the sites span at least 2 functions;
-3. no disqualifying use exists.
-
-**Output policy.** Only candidates meeting all three conditions are
-`finding`s. A subject with disqualifying uses is never shown at the edit
-boundary. `verbs scan --hypotheses` lists those subjects for a human or
-agent who asks.
-
-This applies the compiler-check bar from the literature: an agent acts on
-everything it is shown, so the edit-boundary feed carries only what is very
-likely right. The thresholds are parameters to calibrate on the corpus (§9.3).
-
-**Suggestion.** A finding carries its evidence and the concrete
-encoding:
-- an `enum class` with the observed values;
-- `verbs::to_enum` at the ingress sites it found (the assignments from
-  non-literal sources, if any; otherwise the declaration's initializer);
-- `-Werror=switch-enum`.
-
-verbs cannot name the enumerators. The finding asks for names rather than
-inventing them.
-
-**Resurfacing a decided candidate.** A decision (§7) records the values seen
-when it was made. A decided candidate resurfaces as a finding when new
-literal values appear outside that set, or when every disqualifying use that
-justified an `open_domain` decision disappears.
+Settled regardless of the lane's numbers:
+- **It proposes and never gates.** A candidate is not a correctness
+  finding, so it never sets a non-zero exit (doctrine D5).
+- **At most one candidate per delta,** labelled `proposal`.
+- **Observed values are a lower bound on the domain.** A finding says
+  "values observed include …", gives the explicit values it saw, and asks
+  for the domain and the names. It never proposes `verbs::to` over the
+  observed set (checks B2, ergonomics M8).
+- **Subjects** are fields, globals and function returns, not parameters or
+  locals (doctrine D21).
+- **Recognized evidence:** literal-initialized `constexpr` constants and
+  existing enumerators count as literals (doctrine D4). Writing a value out
+  (egress) does not disqualify; only reading it back in is ingress
+  (ergonomics M8).
+- **Disappearance prints `!`.** A candidate that disappears because a
+  disqualifying use appeared prints `!`, not `-` (doctrine D4).
+- **Excluded or `outside`:** subjects in `extern "C"` types, in translation
+  units below C++26, or in code the path rule excludes are `outside`.
+  `volatile`, atomic and `sig_atomic_t` subjects are excluded (checks M5).
+- **Test code supplies no evidence.**
 
 ## 6. `verbs check`
 
 ### 6.1 Interface
 
 ```
-verbs scan  -p <build-dir> [--hypotheses]          # full analysis; writes facts and report
-verbs check -p <build-dir> --changed <path>...     # incremental; prints the delta
+verbs scan  -p <build-dir> [--hypotheses]      # full analysis; lists claims with the boundary
+verbs check -p <build-dir> [--changed <path>...]
 ```
 
-The only caller contract is that Blackbird's edit hook runs `verbs check`
-with the paths the edit touched, and appends stdout to the edit's tool
-result. How Blackbird does that belongs to Blackbird.
+`--changed` is a hint for scheduling, never the authority on what changed
+(checks B1).
 
-Exit status:
-- 0 when the delta has no new findings;
-- 1 when it has new findings;
-- 2 on a tool failure. A failure prints what failed, and the report says the
-  claims for that translation unit were not refreshed.
+The caller appends stdout verbatim to the edit's tool result and acts only on
+the exit status (doctrine D18). The output text is not a versioned contract.
 
-### 6.2 Pipeline
+| Exit | Meaning | Expected caller behaviour |
+|---|---|---|
+| 0 | Nothing new that gates | continue |
+| 1 | A new escape, silencing or lost claim | the agent addresses it |
+| 3 | A decision was added or changed | Blackbird reverts the edit unless the operator approves (doctrine D3) |
+| 2 | No check ran; the reason is printed | the agent must not read silence as a pass (doctrine D25) |
 
-1. **Affected translation units.** These are the changed sources plus every
-   translation unit whose recorded include set contains a changed file.
-   Include sets come from verbs' own preprocessor callbacks during fact
-   extraction, stored per unit. This needs no build-system integration and no
-   Ninja dependency.
-2. **Extraction.** For each affected unit, verbs parses it with the
-   compilation database's arguments and runs the matchers. It writes:
-   - a facts file per unit, holding evidence for cross-unit checks and the
-     include set;
-   - that unit's local findings (escapes).
+Proposals never affect exit status. The `--hypotheses` listing exists for the
+precision calibration of §10.3; that is its only consumer (doctrine D27).
 
-   Units run in parallel across cores.
-3. **Cross-unit evaluation.** The enum-candidate rule runs over the facts
-   files of every unit.
-4. **Delta.** verbs compares the new findings with the previous report,
-   using stable keys (§6.3). It prints the delta and writes the new report.
+### 6.2 Verifying traces: what decides that a unit is re-checked
 
-The first `verbs check` without facts files runs `verbs scan`. Facts files
-and reports live in `<build-dir>/verbs/` and are disposable. Their format is
-an owned, versioned binary format; a version mismatch deletes and rebuilds.
+Each run decides for itself which units changed. For each unit, verbs records
+a **trace** (core literature §9; checks B1, M7). The trace holds:
+- the hash of the unit's compile command;
+- every input file Clang read: SourceManager file entries, `#embed`
+  resources, and the PCH's input-file list, each with size, mtime and content
+  hash;
+- every negative probe: include-path lookups that missed, and
+  `__has_include` results.
 
-The brief's preservation verdicts and `preservation_dep` hashes are not
-built: the basics have no preservation verdicts to cache, because vlib
-invariants are preserved by construction. The edit-keyed cache is deferred
-(bead), pending the latency measurement (bead).
+On every run:
+1. **Compilation database.** Diff it per entry by command hash. Drop facts
+   for removed entries. For a changed source that is not in the database,
+   print `! outside: not in compilation database`.
+2. **Traces.** Stat every recorded input. Hash it only when its size or mtime
+   moved. On blackbird, 257 units touch 1,641 files, which takes
+   milliseconds. A unit whose trace mismatches, or whose negative probe now
+   finds a file, is stale.
+3. **Re-extract** every stale unit. `--changed` only orders the work.
+4. **Cross-unit evaluation:** declaration and definition mismatches (§4.1),
+   and enum candidates (§5).
+5. **Delta** against the previous report (§6.5).
 
-### 6.3 Stable keys
+Other cases:
+- **PCH:** the prefix header is parsed with `-include` and the PCH flags are
+  stripped.
+- **Modules:** a unit that imports a module is `outside` (bead
+  verbs-de3.31).
+- **Compile errors:** a unit that fails to compile keeps its previous facts.
+  It is listed `not refreshed (compile errors)`, and evidence that depends on
+  it prints no `-` lines (checks M10).
+- **Unincluded headers:** a header in `--changed` that no unit includes prints
+  `! unanalyzed: no unit includes <path>` (checks m3).
+- **Paths** are canonicalized with `realpath` on both sides (checks m4).
 
-A finding is keyed by its check name, the subject's qualified name, and the
-evidence class. Line numbers are never part of the key. They appear only as
-the location shown. Renaming a subject retires its old finding and adds a new
-one. That is correct, because renaming changes the subject.
+### 6.3 Files, locking, path rule
 
-### 6.4 Output
+- **Location:** traces, facts and the report live in `<build-dir>/verbs/`.
+  They are owned binary formats, versioned; a mismatch deletes and rebuilds.
+- **Writes:** every file is written to a temporary name and renamed into
+  place. Any read failure deletes and rebuilds (doctrine D28).
+- **Locking:** one exclusive lock covers `<build-dir>/verbs/`. Concurrent
+  `verbs check` processes wait for it (checks M10).
+- **Path rule:** the repository declares which paths are generated, vendored
+  or otherwise outside, in a small owned text file at the repository root
+  (format in the plan; not JSON). Changing it is a silencing finding (checks
+  m5).
 
-Short, ranked, and scoped to the change, as the agent-feedback evidence asks.
-Each finding gives the evidence and one concrete encoding.
+### 6.4 Keys
+
+Keys never contain line numbers or byte offsets (checks M8).
+
+| Entity | Key |
+|---|---|
+| External linkage | USR |
+| Internal linkage, including anonymous namespaces | repository-relative path plus qualified name |
+| Lambdas and unnamed types | enclosing key plus ordinal among siblings of that kind |
+| Escape | enclosing function's key, construct class, ordinal within the function |
+
+Renaming a subject retires its old key; that is correct, because the subject
+changed. Functions defined in headers are counted once by identity, not once
+per unit (checks m7).
+
+### 6.5 Output
 
 ```
-verbs · 3 TUs · 1.2 s · build/debug
-+ enum-candidate  Door::mode (int)  src/door.cpp:41
-    values {0, 1, 3}: compared or assigned in 4 functions; no disqualifying use
-    encode: enum class Door::Mode with verbs::to_enum at src/net.cpp:88; name the values
-- escape  Ledger::balance  const_cast removed  src/ledger.cpp:120
-! decision added  Packet::kind  open_domain "wire protocol reserves 3-7"  src/packet.hpp:14
-claims assume: no unwind mid-mutation · no moved-from use · single owner · one thread
+verbs · 3 units re-checked · 1.8 s · build/debug
++ escape  PhaseKind value-initialized; 0 is not a value   src/token_usage.cpp:337
+    std::map::operator[] creates Node{} with kind == 0
+    fix: try_emplace(key, Node{...}) with an explicit kind
+! lost claim  Header::version  Bounded<1,5> -> std::uint8_t   include/x/header.hpp:12
+! decision added  Packet::kind  open_domain "producers own the domain"   src/packet.hpp:14
+~ proposal  Resource::ending_ (std::uint8_t): values observed include 0x00, 0x01, 0x02
+    this looks like a closed domain; if it is, declare it with VERBS_ENUM and give the full domain and names
+claims assume: no unwind mid-mutation · no moved-from use · single owner · one thread ·
+  no call-out while broken · single-state · analyzed code is this database's units ·
+  no UB outside vlib · hardening ≥ FAST · switch-enum and uninitialized are errors · static vlib objects constinit
 ```
 
-- `+` is a new finding, `-` a resolved one, and `!` a decision or silencing
-  change.
-- New findings are ordered escapes first, then candidates. At most N findings
-  per file and M in total are printed, with a count of those withheld.
-- The footer line is always printed.
+| Prefix | Meaning |
+|---|---|
+| `+` | new finding |
+| `-` | resolved finding |
+| `~` | changed evidence under an unchanged key, or a proposal |
+| `!` | lost claim, decision change, silencing, or something not analyzed |
 
-This output goes to Blackbird, so it is an external boundary. Its format is a
-contract versioned with verbs.
+Rules:
+- **Order:** escapes, then lost claims, then silencing, then decisions, then
+  one proposal.
+- **Caps:** at most N findings per file and M in total. Withheld findings stay
+  marked *unshown* and carry into the next delta until printed (checks M9).
+- **The boundary line** is printed whenever the delta reports a claim
+  change. A delta of proposals alone omits it.
+- Each finding gives its evidence and one concrete fix. A fix never invents
+  enumerator names or values.
+
+### 6.6 Latency
+
+- **Budget:** p95 of at most 10 s per edit on the operator's machine at
+  normal load.
+- **Cost model**, measured on blackbird (checks M11): about 3.1 CPU-s per
+  unit. A `.cpp` edit costs one unit. A header edit costs its fanout:
+  `foundation.hpp` reaches 243 of 257 units, and the touch-weighted mean
+  fanout is 72.5 units, about 14 s on 16 idle cores.
+- **Over budget:** verbs prints the delta for the units finished within
+  budget, plus `~ N units pending (claims for them not refreshed)`. Pending
+  units stay stale and finish on the next run. Nothing pending is reported
+  as resolved.
+- **Gate:** enabling the check in Blackbird's hook is gated on this budget,
+  measured on blackbird (bead verbs-de3.14), alongside the precision gate
+  (§10.3).
 
 ## 7. Decisions
 
-A decision records a human or agent verdict on a finding that the code cannot
-express itself. The brief's verdicts carry over:
-- `rejected`: the hypothesis is false;
-- `open_domain`: deliberately unconstrained, with a rationale;
-- `accepted_pending`: true, and encoding is planned.
-
-The brief puts decisions in `.verbs/decisions.jsonl`. JSON persistence
-violates BLACKBIRD.md, and the operator asked for something that sucks less.
-**Decided (operator, 2026-10-17): the decision goes on the declaration it
-concerns.** The deciding reason: nearly every reader will be an LLM agent, and
-an agent about to change a declaration reads the file that holds it. A
-decision on the declaration is in view when it matters; a sidecar file
-helps only an agent that already knows to look for it.
+A decision records a verdict the code cannot express. The basics have one
+verdict:
 
 ```cpp
-VERBS_OPEN_DOMAIN("wire protocol reserves 3-7 for future modes", seen(0, 1, 3))
-std::uint8_t kind;
+VERBS_OPEN_DOMAIN("producers own the domain; see provider_original.cpp:443")
+std::uint8_t kind = 0;
 ```
 
-The macro expands to `[[clang::annotate("verbs:open_domain", ...)]]` today,
-and to a C++26 annotation (`[[=verbs::open_domain{...}]]`) when the Clang in
-use supports P3394. **[toolchain]**
+It means that this subject is deliberately not a closed domain, for the
+stated reason.
 
-What this buys over a separate file:
-- The decision moves with the code through renames, moves and refactors.
-  The brief's USR-plus-qualified-name keying and its orphan handling are no
-  longer needed.
-- The repository documents itself: the rationale sits next to the field it
-  explains, which is the operator's stated preference.
-- It shows up in every diff and code review with no extra machinery.
-  `verbs check` reports every added or changed decision as a `!` line, which
-  is the Goodhart defence without an author field. `git blame` names the
-  author.
-- There is no file format to design, parse or fuzz. The compiler parses it.
+**Placement (operator decision, 2026-10-17).** The decision goes on the
+declaration it concerns. Nearly every reader will be an LLM agent, and an
+agent about to change a declaration reads the file that holds it. A decision
+there is in view when it matters; a sidecar helps only an agent that already
+knows to look.
 
-A decision is the one annotation the basics ask for, because its rationale
-is exactly what the code cannot say (§1). A `rejected` verdict whose reason
-is obvious from the code is evidence of a check defect, not a decision to
-record.
+**Spelling.** The macro expands to `[[clang::annotate("verbs:open_domain",
+why)]]`. It switches to a C++26 annotation when the pinned Clang supports
+P3394.
 
-What it cannot cover: subjects in code the team cannot edit (vendored,
-generated). A sidecar file for those is deferred (bead) until a corpus repo
-needs it.
+**What was cut, and why:**
+- **The `seen(...)` list** repeated in source what verbs computes, and made
+  "append the new value" the cheapest way to silence a resurfacing
+  (ergonomics M9).
+- **`accepted_pending`** is planned work, which belongs in bd (doctrine
+  D15).
+- **`rejected`**: an obvious rejection signals a check defect. A non-obvious
+  one is an `open_domain` with a reason.
+
+**Gate.** Adding or changing a decision gives exit 3 (§6.1). Detecting the
+edit is not enough; the gate must prevent it. Blackbird reverts the edit
+unless the operator approves (doctrine D3). Commit authorship does not
+identify the author: every commit here is authored by the operator.
+
+**Lifecycle.** A decided subject is reported `decided`. A change to or
+removal of the decision prints `!`. Nothing else resurfaces it.
+
+**Not covered:** code the team cannot edit, such as vendored or generated
+code. That is the path rule's `outside`; a decision sidecar is bead
+verbs-de3.20.
 
 ## 8. Toolchain
 
-**[toolchain]** The operator chose C++26 for all C++ code. Upstream Clang,
-trunk included, lacks P2996 reflection and P2900 contracts. verbs' analyses
-are Clang-only, and the Clang that analyzes code must parse every construct
-vlib uses. A lane is measuring what owning a merged C++26 Clang costs.
+**Pin: Homebrew LLVM 23.1.2, compiled with `-std=c++2c`.** This meets the
+operator's C++26 decision with every C++26 feature upstream Clang has. It is
+the compiler blackbird already uses, so blackbird's move to C++26 is a flag
+change, not a compiler change.
 
-Requirements on whatever it selects:
-1. One Clang builds vlib, its tests, the verbs tools, and the corpus code
+**What upstream Clang lacks:**
+- **Reflection (P2996).** The Bloomberg clang-p2996 fork has it. It was
+  built and probed (papers/2026-10-17-cpp26-clang-toolchain.md). But it is
+  based on LLVM 21, experimental (85 open issues, crashes), and has no
+  contracts. It stays in `context/toolchain-cpp26/` for experiments; nothing
+  in the basics depends on it.
+- **Contracts (P2900).** The operator ranks contracts above reflection for
+  verbs' purpose. Contracts are the standard vocabulary for function-boundary
+  obligations, which vlib types can discharge. Two beads cover this:
+  evaluating the contracts branch, and that next phase (verbs-de3.26).
+  Contracts never carry vlib's own representation invariants, because a build
+  may select the `ignore` semantic (§3.1).
+
+**Rules for the pin:**
+1. One Clang builds vlib, its tests, the verbs tools, and the blackbird code
    verbs analyzes.
-2. The verbs tools link that Clang's libraries, built with matching settings:
+2. The tools link that Clang's libraries with matching settings:
    `-fvisibility-inlines-hidden`, RTTI on, no exceptions across LLVM frames,
    C enabled in CMake, and the resource directory baked in
-   (cpp-toolchain-burdens §5-7).
+   (cpp-toolchain-burdens §5–7).
 3. CMake presets set `CMAKE_OSX_SYSROOT` from `xcrun --show-sdk-path`.
-4. Any change to the toolchain rebuilds every verbs binary.
+4. `llvm` stays pinned in Homebrew. Any toolchain change rebuilds every verbs
+   binary.
+5. Mull 0.34.2 supports macOS LLVM 16–21, so mutation runs need it ported to
+   23 or a fleet profile (bead verbs-b4x).
 
-**Design rule:** vlib's basics must not depend on fork-only features without
-a fallback. Reflection replaces `VERBS_ENUM` and `Pred::id`, and annotations
-replace `clang::annotate` spellings. Each has a macro fallback that works on
-Clang 23 with `-std=c++2c`. If the fork proves too costly, the basics still
-ship.
-
-## 9. Verification
-
-Per BLACKBIRD.md: choose oracles by fault class, aim for tiers 4-7, and
-never trust a test by default.
-
-### 9.1 vlib
-
-| Fault class | Oracle | Tier |
-|---|---|---|
-| Wrong result range from an operation | Compile-time tables: `static_assert` of result bounds for operand range pairs, hand-derived from interval arithmetic, covering signs, zero crossings, and `int64_t` extremes | 7 (spec) |
-| Wrong runtime value | Differential fuzzing (libFuzzer) against an `__int128` model. For random bounds and values: the result equals the model's result, and lies within the result type's bounds | 6 (model) |
-| Same table, two execution paths | The spec tables run at runtime and under `constexpr`, as Boost.SafeNumerics does | 7 |
-| API admits a forbidden operation | Concept-rejection tests: `static_assert(!requires { Bounded<0,5>{3}; })` for raw ingress, narrowing assignment, default construction, lambda predicates | 7 |
-| Wrong diagnostic for a rejected program | Clang `-verify` with `expected-error` comments, which pins the exact diagnostic at the exact line. Stronger than "build fails" (sml) or untested `#ifdef`s (GSL) | 7 |
-| Checked ingress accepts out-of-range input | Property tests: `make(v)` succeeds iff `Lo <= v <= Hi`, for all `int64_t` edge values and fuzzed values. `to_enum` succeeds iff the value is an enumerator | 5 |
-| Narrowing check bypassed | Death tests: `+=` past a bound reaches the handler | 5 |
-| Undefined behaviour | All runtime tests and fuzzers under ASan and UBSan | 2, on every run |
-
-### 9.2 Checks
-
-| Fault class | Oracle |
-|---|---|
-| Missed or spurious finding on known code | Case files with expected findings written as source comments (`// verbs: enum-candidate Door::mode {0,1,3}`), compared exactly, as IWYU's tests do. Every rule clause has a case that trips it and one that just misses it |
-| Key instability | Metamorphic tests: renaming locals, reordering declarations, moving a function to another unit, or reformatting leaves the findings and keys unchanged |
-| Cross-unit evidence lost | The same subject's uses split across 1, 2 and 3 units give the same finding |
-| Facts file reader crashes or misreads | libFuzzer on the reader; round-trip property (write, read, compare) |
-
-### 9.3 Precision on real code
-
-Run `verbs scan` on blackbird and BRepGPU, and hand-review every finding.
-Record each as true or false in papers/. Escape findings must be 100%
-true; enum-candidate thresholds are tuned until the findings are. This is
-the measured form of the zero-effective-false-positive bar, and it gates
-turning the check on in Blackbird's edit hook.
-
-### 9.4 `verbs check`
-
-End-to-end: fixture repositories with scripted edit sequences and expected
-deltas written from this spec. Two properties also hold:
-- applying an edit and then its inverse gives an empty net delta;
-- `verbs check` after any sequence of edits reports the same findings as a
-  fresh `verbs scan` (incremental equals from-scratch).
-
-### 9.5 Mutation testing
-
-Mull over vlib, the checks, and `verbs check`, on the fleet, never on the
-laptop. It needs Mull on the selected Clang (bead `verbs-b4x`). Surviving
-mutants are triaged into missing oracles or equivalent mutants.
-
-## 10. Layout
+## 9. Layout
 
 ```
 cpp/CMakeLists.txt, cpp/CMakePresets.json
-cpp/include/verbs/       vlib: bounded.hpp refined.hpp id.hpp enum.hpp handler.hpp
-cpp/lib/                 matchers, facts format, rules, report
+cpp/include/verbs/       vlib: enum.hpp bounded.hpp to.hpp violation.hpp
+cpp/lib/                 matchers, traces, facts, rules, report, delta
 cpp/tools/verbs/         the verbs binary
-cpp/tests/vlib/          spec tables, concept rejections, -verify cases, fuzzers
+cpp/tests/vlib/          enumeration oracles, concept rejections, -verify cases, fuzzers
 cpp/tests/checks/        case files, metamorphic tests
-cpp/tests/e2e/           fixture repositories and edit scripts
+cpp/tests/e2e/           fixture repositories and edit generators
 ```
 
 The placeholder `packages/cpp` header retires when vlib lands. The Rust crate
-stays at the repository root until the Rust phase (bead `verbs-4ox`).
+stays at the repository root until the Rust phase (verbs-4ox).
+
+## 10. Verification
+
+Oracles are chosen by fault class and must be independent of the code they
+check (doctrine Q3). Expected results are written from this spec before the
+code exists (red first; doctrine D26).
+
+### 10.1 vlib
+
+| Fault class | Oracle |
+|---|---|
+| Wrong result range | **Enumeration model.** For every pair of intervals inside [-4, 4] (45 per operand, about 2,000 pairs per operation), enumerate all operand values and compute the true result interval. It must equal the result type's bounds. Independent of the implementation's interval formulas (doctrine D11a). Hand-written rows cover `int64_t` extremes, including `INT64_MIN % -1`, `INT64_MAX` accumulators, and the `+=` constraint at the limits. |
+| Wrong runtime value | Differential fuzzing (libFuzzer) against an `__int128` model, over a **named pre-instantiated grid** of bound pairs; the fuzzer varies the values (doctrine D11b). |
+| Forbidden operation accepted | Concept-form rejection tests: `template<class B> concept raw_ok = requires { B{3}; }; static_assert(!raw_ok<Bounded<0,5>>);`. They cover raw ingress, narrowing, default construction, `++`, and `k<V>` out of range (doctrine D11d). |
+| Wrong diagnostic | `-verify` only where the message is the product: each `= delete("…")` reason (doctrine D20). |
+| Wrong enum domain | `verbs::to<E>` tested against literal expected sets written in the test: gaps, aliases, negative values, with and without 0, and names. Never derived from the macro's own arrays (doctrine D11c). |
+| Checked operation fails open | `+=` and `-=` past each bound, including `INT64_MAX` accumulators, throw and leave the object unchanged. |
+| Wrong ingress | Property tests for `verbs::to` over edge values of every integral source type: signed and unsigned, narrower and wider, `uint64_t` above `INT64_MAX`, and `bool` and character types, which are rejected at compile time (soundness m5). |
+| Undefined behaviour | Every runtime test and fuzzer runs under ASan and UBSan. |
+| Compile-time logic wrong | A dozen scripted source mutants of vlib's headers, each killed by the suites above, for example a flipped `requires`, swapped min and max, or a storage off-by-one. Mull covers runtime paths only (doctrine D10). |
+
+### 10.2 Checks and pipeline
+
+| Fault class | Oracle |
+|---|---|
+| Missed or spurious escape | One case file per §4 rule clause, with expected findings in source comments, compared exactly (the IWYU style). Each clause has a case that trips it and one that just misses it. Every tribunal counterexample is a case. |
+| Escape the rule does not know | **Audit build** (checks M3). vlib's `get()` checks its invariant at runtime instead of assuming it. Migrated blackbird's test suite runs under ASan and UBSan. Any runtime violation without an escape finding is a missed escape. This is an independent oracle on a different fault class. |
+| Key instability | Metamorphic tests: reordering declarations, moving a function between units, and reformatting leave findings and keys unchanged. |
+| Incremental differs from scratch | After every generated sequence of changes, `verbs check` equals a fresh `verbs scan`. The generator includes out-of-band writes, created and deleted files, database changes, generated headers, and non-compiling intermediate states (checks M10). |
+| Wrong delta | Delta tested as a pure function over report pairs: applying `delta(a, b)` to `a` gives `b`, and unshown findings persist until shown (doctrine D19). |
+| Corrupt facts | libFuzzer on every reader; a write-then-read round trip; a torn write leads to rebuild. |
+
+### 10.3 Precision on real code
+
+- **Escapes** are measured on a branch of blackbird with the migration
+  applied, plus seeded escapes (doctrine D9, checks M3).
+- **"True"** means the operator would accept the edit the finding asks for.
+- **The reviewer** is the operator, or an agent with no access to the
+  check's source. Jev gives an independent second label. Disagreements are
+  re-read and their resolution recorded. Every count includes n.
+- **Rules are tuned on one corpus and reported on another** (checks M6).
+- **Enum-candidate precision** comes from its lane (§5).
+- **Gate:** the hook is enabled only when escapes are 100% true on the seeded
+  migration and the latency budget holds (§6.6).
+
+### 10.4 Mutation testing
+
+Runs on the fleet, never on the laptop. Mull covers runtime paths once it
+supports the pinned Clang (verbs-b4x). Source mutants cover compile-time logic
+(§10.1).
 
 ## 11. Departures from the brief
 
 | Brief | Basics | Why |
 |---|---|---|
-| Delta daemon with clangd tiers | Stateless `verbs check` | Operator decision; push needs no residency (agent-feedback lane) |
-| `.verbs/decisions.jsonl` | Decisions on the declaration | JSON persistence rule; in view for the agent editing the declaration; no keying or orphans |
-| `[[clang::annotate("verbs:inv ...")]]` for invariants | The vlib type is the declaration | No second declaration to drift from the type |
-| Widening-only `Bounded` | Widening plus checked compound assignment | Loop accumulators must type (Wuffs) |
-| Bound overflow by UB in constant evaluation | Explicit `__int128` check with `static_assert` | Clear diagnostics (bounded::integer) |
-| `VERBS_ENUM` permanent | Fallback until reflection | C++26 `enumerators_of` |
-| Lambda ban by rule | Lambda ban by concept | Enforced by the compiler |
-| SQLite cache, preservation verdicts | Per-unit facts files only | Nothing to cache in the basics |
-| Visible-state class invariants | Value invariants in types; whole-value refinement | Claim-scope decisions; reentrancy (Boogie) |
-| Four first-wave lints | Escape plus enum-candidate | Basics first; Lackwit's precision trap |
-| C++23 | C++26 with fallbacks | Operator decision |
+| Delta daemon with clangd tiers | Stateless `verbs check` with verifying traces | Operator; push needs no residency; traces make it correct |
+| `.verbs/decisions.jsonl` | `VERBS_OPEN_DOMAIN("why")` on the declaration, gated | JSON rule; in view for the agent; gate prevents rather than detects |
+| Annotations declare invariants | The vlib type is the declaration | No second declaration to drift |
+| `Bounded` widening only | Widening, checked `+=`/`-=`, `k`, `upto`, implicit egress | Loops and indices must read naturally |
+| UB in constant evaluation for bound overflow | `__int128` everywhere, with `static_assert` | Clear diagnostics; `%` and `+=` edge cases |
+| `VERBS_ENUM` positional | `name = value`, zero rule, reflection later | Wire domains |
+| `Refined`, `Id`, typestate, capabilities | Deferred (beads) | No corpus consumer; blackbird's `Id` is stronger |
+| Deny-list of escape constructs | Allowlist by AST meaning | Soundness tribunal |
+| Lint suppression honoured | No suppression comment honoured | Decisions are the only silencer |
+| SQLite cache, preservation verdicts | Per-unit traces and facts | Nothing else to cache |
+| Visible-state class invariants | Value invariants in types | Reentrancy; claim-scope decisions |
+| Four lints | Escape check plus one advisory proposal | Basics first; precision |
+| C++23 | C++26 (`-std=c++2c`) on the pinned Clang | Operator decision |
 
-## 12. Open questions for the tribunal
+## 12. Open questions for the second tribunal
 
-1. Is the claim of §2 true as stated for every vlib type, given the escape
-   check of §4? Find a program that violates a `holds` claim without an
-   escape finding.
-2. Does checked compound assignment (§3.1) break any `typecheck` claim the
-   report makes?
-3. Are the enum-candidate disqualifiers (§5) complete enough for zero
-   effective false positives? Which C++ uses of an integer are neither
-   counted nor disqualifying?
-4. Can include-set tracking (§6.2) miss an affected unit, for example
-   through `__has_include`, macros that change inclusion, or the compilation
-   database changing?
-5. Is in-source decision recording (§7) gameable in a way a separate file
-   is not?
-6. Is anything in the basics a disguised complex case that should be a bead?
+1. Does the [lane] allowlist (§4) catch every compiled counterexample from
+   the first tribunal, with no false positive on legitimate vlib use?
+2. Do verifying traces (§6.2) make incremental equal from-scratch under the
+   generator's out-of-band changes?
+3. Is exit 3 (decision gate) enforceable in Blackbird without blocking
+   legitimate work?
+4. Is the over-budget behaviour (§6.6) honest, or can pending units hide an
+   escape indefinitely?
+5. Does anything left in the basics lack a named consumer?
 
-## 13. Deferred beads named in this spec
+## 13. Increments
+
+The plan sequences these; listed here so the spec states what "done" means.
+
+1. **E: enums.** `VERBS_ENUM` and `verbs::to<E>`. The escape rules that
+   concern enums. `verbs check` with traces, keys, delta and exit codes. The
+   §10 oracles for all of these. Lands with blackbird's decoding-seam
+   migration (§1.1).
+2. **B: `Bounded`**, once a blackbird declaration is named (§3.3). Otherwise
+   it moves to a bead.
+3. **P: enum-candidate proposals**, if the lane's precision justifies them.
+
+## 14. Deferred beads named in this spec
 
 | Topic | Bead |
 |---|---|
@@ -591,11 +713,19 @@ stays at the repository root until the Rust phase (bead `verbs-4ox`).
 | Edit-keyed cache; latency including header fanout | verbs-de3.13, verbs-de3.14 |
 | Cross-field invariants on mutable owners | verbs-de3.17 |
 | Bounded beyond int64 | verbs-de3.18 |
-| Kinds with arithmetic | verbs-de3.19 |
+| Kinds and strong types (Id), recognizing existing ones | verbs-de3.19 |
 | Decision sidecar for uneditable code | verbs-de3.20 |
 | Kind discovery | verbs-de3.21 |
 | Typestate; TSA authority capabilities | verbs-de3.22, verbs-de3.23 |
 | bool-cluster, repeated-guard | verbs-de3.24 |
-| Editor-time verbs (tidy adapter, custom clangd) | verbs-de3.25 |
-| Mull on the selected Clang | verbs-b4x |
+| Editor-time verbs | verbs-de3.25 |
+| Contracts as the obligation vocabulary; contracts-branch evaluation | verbs-de3.26 |
+| Reflection replaces VERBS_ENUM arrays | verbs-de3.27 |
+| Refined over deep value types | verbs-de3.28 |
+| Pointer-equality string comparison check | verbs-de3.29 |
+| Kill-criterion experiment | verbs-de3.30 |
+| C++ modules in analyzed units | verbs-de3.31 |
+| Facts shared across worktrees (constructive traces) | verbs-de3.32 |
+| Points-to narrowing of escape attribution | verbs-de3.33 |
+| Mull on the pinned Clang | verbs-b4x |
 | Rust phase | verbs-4ox |

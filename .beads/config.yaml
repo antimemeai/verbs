@@ -52,3 +52,6 @@
 # - linear.api-key
 # - github.org
 # - github.repo
+
+# Dedicated port: the default 3307 is shared and was taken by another repo (2026-10-17).
+dolt.port: 13309
