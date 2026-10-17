@@ -9,4 +9,4 @@ repository = "https://github.com/antimemeai/verbs"
 readme = "README.md"
 keywords = ["constraints", "validation", "agents", "contracts"]
 categories = ["development-tools"]
-include = ["src/**", "Cargo.toml", "README.md", "LICENSE*"]
+include = ["/src/**", "/Cargo.toml", "/README.md", "/LICENSE"]

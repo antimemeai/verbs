@@ -21,3 +21,9 @@ Add one release utility that reads only the selected credential from the named
 workspace file. Parse it as text, never shell-source it, pass the value only in
 the child environment, and redact it from captured command output. Never put
 credentials in arguments, Git, journal entries, or persistent Cargo config.
+
+The first retry stopped before upload: Cargo's unanchored LICENSE* include
+matched ignored copies of LICENSE in local package-install trees. The same
+issue applied to the unanchored README pattern. Corrected the include list to
+root-anchored source, manifest, README, and LICENSE paths; inspect the resulting
+archive list before retrying. No --allow-dirty workaround is appropriate.
