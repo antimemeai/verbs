@@ -38,3 +38,26 @@ are absent. Docker is installed but its daemon is not running. Validate the
 available implementations locally and use a small GitHub workflow to run the
 five native checks and package dry runs with the missing tools. Keep publishing
 out of the workflow; no registry authorization was requested this turn.
+
+Implemented the five footprints and pushed commit 8069446. Ruby's contract
+checks and gem build pass locally. The installed Mono compiler wrapper points
+to an executable that macOS rejects with Bad CPU type; did not change the
+operator's toolchain. Its presence did not establish a working C# compiler.
+
+GitHub Actions run 38990090145 completed successfully:
+https://github.com/antimemeai/verbs/actions/runs/38990090145
+
+All five implementations pass the contract checks. Composer strict validation
+passes. RubyGem creation passes. Dart analysis finds no issues; the publication
+dry run reports zero warnings. The .NET 10 SDK runs the .NET Standard 2.0
+library's consumer checks and creates Verbs.0.1.0.nupkg. The workflow uses
+official SDK setup actions pinned to inspected commit SHAs, and contains no
+publication step or registry credentials. No runtime/test library was added.
+
+Added scripts/check-footprints.sh for native checks/package dry runs and
+scripts/check-registries.py for public endpoint rechecks. Updated issue #1 with
+the new publication work, provisional alternatives, and Maven/Java exclusion.
+Wrote the endpoint snapshot, registry rules, and Haskell/Common Lisp/Zig
+assessment in papers/ecosystem-package-identities.md. Clojars' verbs endpoint
+and Racket's verbs page also returned 404; these are separate Lisp ecosystems,
+not an implication of the Quicklisp result. No package names were claimed.

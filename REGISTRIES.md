@@ -20,6 +20,12 @@ source preparation are separate states. Do not publish placeholder-only packages
 | Erlang / Hex | `verbs_agent` (provisional) | `verbs` is taken; alternative API returns 404; OTP source and metadata prepared |
 | .NET / NuGet | `Verbs` | Flat-container API returns 404, exact-ID search empty; .NET Standard 2.0 project prepared |
 
+The five additional footprints passed [CI run 38990090145](https://github.com/antimemeai/verbs/actions/runs/38990090145):
+PHP/Ruby/Erlang/Dart/.NET contract checks, strict Composer validation, Ruby gem
+creation, Dart analysis and publication dry run (zero warnings), and NuGet
+package creation. These are package-preparation results; no registry upload
+was run. Haskell/Common Lisp/Zig remain research candidates.
+
 Rust: `cargo publish` from the repository root. The local rustup toolchain is
 pinned in rust-toolchain.toml; prefer `~/.cargo/bin` on PATH. Standard Cargo
 credentials stay outside this repository.
