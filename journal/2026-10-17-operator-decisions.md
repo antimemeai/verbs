@@ -126,3 +126,12 @@ remains open and parked with utils/.
   belongs to the future Becoming project.
 - Design phase begins: design/SPEC.md for the basics, then an adversarial
   tribunal, then the plan.
+
+## Decisions record placement
+
+The operator deferred to what is most ergonomic for LLM readers, since nearly
+every reader will be an agent. Decided: decisions go on the declaration they
+concern (design/SPEC.md §7). An agent changing a declaration reads its file,
+so the decision is in view exactly when it matters; a sidecar helps only an
+agent that already knows to look. Sidecar for uneditable code stays deferred
+(verbs-de3.20).

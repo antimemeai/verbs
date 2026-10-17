@@ -423,9 +423,13 @@ express itself. The brief's verdicts carry over:
 - `open_domain`: deliberately unconstrained, with a rationale;
 - `accepted_pending`: true, and encoding is planned.
 
-**[decide]** The brief puts decisions in `.verbs/decisions.jsonl`. JSON
-persistence violates BLACKBIRD.md, and the operator asked for something that
-sucks less. Proposal: **put the decision on the declaration it concerns.**
+The brief puts decisions in `.verbs/decisions.jsonl`. JSON persistence
+violates BLACKBIRD.md, and the operator asked for something that sucks less.
+**Decided (operator, 2026-10-17): the decision goes on the declaration it
+concerns.** The deciding reason: nearly every reader will be an LLM agent, and
+an agent about to change a declaration reads the file that holds it. A
+decision on the declaration is in view when it matters; a sidecar file
+helps only an agent that already knows to look for it.
 
 ```cpp
 VERBS_OPEN_DOMAIN("wire protocol reserves 3-7 for future modes", seen(0, 1, 3))
@@ -549,7 +553,7 @@ stays at the repository root until the Rust phase (bead `verbs-4ox`).
 | Brief | Basics | Why |
 |---|---|---|
 | Delta daemon with clangd tiers | Stateless `verbs check` | Operator decision; push needs no residency (agent-feedback lane) |
-| `.verbs/decisions.jsonl` | Decisions on the declaration | JSON persistence rule; self-documenting; no keying or orphans **[decide]** |
+| `.verbs/decisions.jsonl` | Decisions on the declaration | JSON persistence rule; in view for the agent editing the declaration; no keying or orphans |
 | `[[clang::annotate("verbs:inv ...")]]` for invariants | The vlib type is the declaration | No second declaration to drift from the type |
 | Widening-only `Bounded` | Widening plus checked compound assignment | Loop accumulators must type (Wuffs) |
 | Bound overflow by UB in constant evaluation | Explicit `__int128` check with `static_assert` | Clear diagnostics (bounded::integer) |
