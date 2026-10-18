@@ -130,17 +130,24 @@ Open-source C++ for the deterministic corpus runs (SPEC §1.1, bead verbs-2or).
 - **Submodules** are fetched at their pinned commits by `probe.py` into the
   same archive directory, and unpacked in place.
 - **Extracted trees:** `quarantine/corpus/src/<owner>__<repo>/`, stripped of
-  `.git`, `.hg`, `.svn` and `.DS_Store`.
+  `.git`, `.hg`, `.svn` and `.DS_Store`. They exist only while a project is
+  probed. The tarballs are the source of truth, and extraction is
+  deterministic, so a later run re-extracts.
 - **Build outputs** never persist. Each configure runs in a per-project
   build directory under `sandbox-exec`, which allows writes only there and
   in temp directories. The directory is deleted when the probe ends,
   including on failure. Only `compile_commands.json` is kept, in
   `context/corpus/db/`.
-- **Status:** paused at 312 complete tarballs (12 GB), for disk space.
+- **Status:** fetched 318 of 755 (12 GB). Fetching stopped for disk space.
+  `reconcile.py` recorded the tarballs already on disk in `fetched.tsv`. The
+  other 437 are listed in `context/corpus/unfetched.tsv` (columns of
+  `selected.tsv`). The probe runs over the 318.
 
-Restore or resume from the repository root:
+Fetch the rest, then probe, from the repository root:
 
 ```sh
 cd context/corpus
-python3 -I fetch.py selected.tsv ../../quarantine/_archives/corpus-2026-10-18 fetched.tsv 40
+python3 -I fetch.py unfetched.tsv ../../quarantine/_archives/corpus-2026-10-18 fetched.tsv 40
+python3 -I probe.py fetched.tsv ../../quarantine/_archives/corpus-2026-10-18 \
+  ../../quarantine/corpus/src db ../../quarantine/corpus/build probe.tsv 8
 ```
