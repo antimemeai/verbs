@@ -404,3 +404,29 @@ It stays "proposed" until the operator sets it.
   type-checked, and a closure keeps the static type.
 - `printf("%p")` being flagged is a prototype false positive. It is
   noted for the implementation.
+
+## 2026-10-18: corpus runs replace the agent experiment
+
+The operator rejected the kill-criterion experiment and its proposed
+threshold (R2-10). Their objections: a false-finding rate under 5% is a
+disaster, not a target; a deterministic checker has no variance to measure;
+and real C++ code is available in vast quantity.
+
+All of the experiment's variance came from the agent in the loop: which
+edits it writes, and whether it writes the fault at all. Whether verbs
+catches a fault at the edit that introduces it is a property of the check,
+so SPEC §1.1 now tests it directly:
+- Open-source C++ projects that build at `-std=c++2c` are migrated
+  mechanically: scoped, fixed-underlying enums that name 0 become
+  `VERBS_ENUM`.
+- Every prevented and detected class is seeded at recorded sites.
+- A missed seed or a false finding is a bug, with zero tolerance.
+- Each seed also records whether the compiler and the project's own tests
+  already catch it. If verbs catches nothing they miss, we stop (brief §10).
+- Real commit histories also drive the incremental-equals-scratch oracle
+  (§10.2).
+
+verbs-de3.30 is closed as superseded, and verbs-2or tracks the corpus
+script. The ChatGPT round-2 run had hung for 19 hours on stdin (no
+`< /dev/null`). It was relaunched on the current spec with MiMo's round-2
+findings marked as done.

@@ -3,7 +3,8 @@
 Status: revision 3, 2026-10-17, after the first tribunal, the Jev coverage
 audit, the ChatGPT and MiMo reviews (papers/2026-10-17-review-*.md) and the
 enum-candidate lane, whose evidence removed discovery and decisions from the
-basics (§5, §7).
+basics (§5, §7). Amended 2026-10-18: deterministic corpus runs replace the
+agent experiment (§1.1).
 Scope: the basics
 only, per the basics-first principle (journal/2026-10-17-operator-decisions.md).
 Everything outside the basics is a bead and is named here only to mark the
@@ -53,17 +54,15 @@ from the code, there is no annotation. If a finding could only be silenced by
 an annotation that states the obvious, the check is wrong. Fix the check;
 don't ask for the annotation.
 
-### 1.1 How the basics reach the kill criterion
+### 1.1 How we know the basics work
 
-The kill criterion: verbs must meaningfully reduce edits-to-detection for a
-coding agent. The basics detect almost nothing in code that does not use vlib,
-so the treatment is a **migration** (doctrine D1).
+verbs is deterministic: the same code always gives the same findings. It is
+tested the way a compiler is tested, with no rates and no thresholds. A
+seeded fault that verbs misses is a bug, and so is a finding on correct
+code. Each one is fixed before the next increment. The basics find almost
+nothing in code that does not use vlib, so every test runs on **migrated**
+code (doctrine D1).
 
-- **Corpus:** blackbird only. BRepGPU is C++17 with an `extern "C"` interface
-  and a CUDA backend (doctrine D1, ergonomics B-excerpt). It cannot hold vlib
-  types without raising its standard and changing its ABI. It is outside the
-  basics. It served as the held-out corpus for the enum-candidate lane
-  (§5).
 - **First migration:** blackbird's enum ingress, seam by seam. The seams
   differ (ChatGPT review F15), so there is no universal helper:
   - token_usage.cpp has its own anonymous-namespace `Fields` reader (lines
@@ -96,29 +95,33 @@ so the treatment is a **migration** (doctrine D1).
     - a vlib type downgraded to a raw integer (§4.7);
     - writes that bypass the representation (§4.1).
 
-**The experiment (bead verbs-de3.30)** is defined here, so that it is
-reproducible (ChatGPT F10, MiMo F4):
-- **Arms.** Baseline: blackbird at the migration's parent commit, with the
-  same agent and hook, and no `verbs check`. Treatment: the migrated commit
-  with `verbs check` in the hook.
-- **Seeds.** One task per seed class above, written once as a natural-language
-  change request, valid in both arms. Example: "accept frame kind 5 from
-  producers". At least 10 tasks per class, and the same tasks in both arms.
-- **Fault oracle.** Independent of verbs: a test written before the run
-  that fails exactly when the seeded fault is present, such as a decode of
-  an out-of-domain value.
-- **Detection event.** The first edit whose tool result names the fault: a
-  compiler error, a test failure, or a `verbs check` line. Prevention counts
-  as detection at that edit.
-- **Edits-to-detection.** Edits from the first faulty edit to the detection
-  event. A run that ends undetected is censored at its edit count + 1. A run
-  with no faulty edit, because the fault could not be written, scores 0, and
-  the oracle test confirms the fault is absent (MiMo F8).
-- **Pass, set before the run (operator's call; proposed):** median
-  edits-to-detection in treatment at most half of baseline on the seeded
-  classes. No regression on generic mutants. Fewer than 1 false `verbs
-  check` finding per 20 tasks.
-- **Fail:** stop and rethink (brief §10).
+**Corpus.** Blackbird, plus open-source C++ at scale. Any project qualifies
+that builds with the pinned Clang at `-std=c++2c` and has a compile database.
+A corpus script migrates each scoped enum that has a fixed underlying type
+and already names 0 to `VERBS_ENUM`, and it skips and counts the rest. The
+plan names the projects. BRepGPU is C++17 behind an `extern "C"` interface,
+so it cannot hold vlib types and is not in the corpus.
+
+**What each corpus run checks.** The seeding script records every site it
+seeds, so it is the oracle, independent of verbs:
+1. **Prevention.** Each seeded fault of a prevented class fails the build at
+   the seeded line, or makes `verbs::to` refuse at that line.
+2. **Detection.** `verbs check` reports each seeded fault of a detected class
+   at the seeded line.
+3. **No false findings.** Every finding on the migrated, unseeded code is
+   read by the operator, or by an agent with no access to the check's source.
+   A finding is true when the operator would accept the edit it asks for.
+   Escapes already present in the project are expected, and they are true.
+4. **What verbs adds.** For each seeded fault, the run records whether the
+   compiler and the project's own tests catch it without verbs. If verbs
+   catches no fault that they miss, it adds nothing, and we stop and rethink
+   (brief §10).
+
+An earlier draft measured an agent with and without verbs, and then needed
+medians, censoring and a pass threshold. All of its variance came from the
+agent, not from verbs. Whether verbs catches a fault at the edit that
+introduces it is a property of the check, so the corpus runs test it
+directly, and no agent runs in the loop.
 
 ## 2. The claim
 
@@ -949,23 +952,23 @@ code exists (red first; doctrine D26).
 | Missed or spurious escape | One case file per §4 rule clause, with expected findings in source comments, compared exactly (the IWYU style). Each clause has a case that trips it and one that just misses it. Every counterexample from the tribunals, the external reviews and escape-v2 is a case. Round 2 named four that confirm only with the cross-unit step or the revised rule text. Each forged 7 under ASan/UBSan at `-O2` with zero prototype findings, except where noted: an upcast to a non-vlib base, then a `char*` store; an unanalyzed callee taking `const E*` or `span<E>`; a `std::move` reference through the read-only sink, then `memset`; and `memcpy(&void_slot, &e_ptr)`, then `memset`, which the prototype caught and the spec text had dropped (MiMo R2-09). Their just-miss partners: a non-vlib upcast never erased; `fwrite(&e, …)`. A polymorphic `dynamic_cast` downcast is a just-miss (legitimate). |
 | Escape the rule does not know | **Audit build** (checks M3). vlib's `get()` checks its invariant at runtime instead of assuming it. For enums, which have no accessor, `verbs::name`, `std::to_underlying` through a vlib wrapper, and every migrated seam's re-encode check membership against expected sets written independently in the tests (ChatGPT F14). Migrated blackbird's test suite runs under ASan and UBSan. Any runtime violation without an escape finding is a missed escape. **Limit:** sanitizers never check enum membership for fixed-underlying enums, so an enum read no audit point observes goes unseen; the case files (row above) carry that class. |
 | Key instability | Metamorphic tests: reordering declarations, moving a function between units, and reformatting leave findings and keys unchanged. |
-| Incremental differs from scratch | After every generated sequence of changes, `verbs check` equals a fresh `verbs scan`. The generator includes out-of-band writes, created and deleted files, database changes, generated headers, and non-compiling intermediate states (checks M10). Only complete runs are compared; a suspended run must print no claim (§6.2). |
+| Incremental differs from scratch | After every generated sequence of changes, `verbs check` equals a fresh `verbs scan`. The generator includes out-of-band writes, created and deleted files, database changes, generated headers, and non-compiling intermediate states (checks M10). It also replays real commit histories from the corpus (§1.1), one commit per edit. Only complete runs are compared; a suspended run must print no claim (§6.2). |
 | Wrong delta | Delta tested as a pure function over report pairs: applying `delta(a, b)` to `a` gives `b`, and unshown findings persist until shown (doctrine D19). |
 | Corrupt facts | libFuzzer on every reader; a write-then-read round trip; a torn write leads to rebuild. |
 
-### 10.3 Precision on real code
+### 10.3 Real code
 
-- **Escapes** are measured on a branch of blackbird with the migration
-  applied, plus seeded escapes (doctrine D9, checks M3).
-- **"True"** means the operator would accept the edit the finding asks for.
+- **The corpus runs of §1.1** (doctrine D9, checks M3). A missed seed or a
+  false finding is a bug. Each one becomes a case file (§10.2) and is fixed.
 - **The reviewer** is the operator, or an agent with no access to the
-  check's source. The operator's labels alone complete the gate. Jev, when
-  available, gives a second label, and disagreements are re-read and their
+  check's source. The operator's reading alone completes the gate. Jev, when
+  available, gives a second reading, and each disagreement is re-read and its
   resolution recorded. No step depends on a model being available (ChatGPT
-  F09). Every count includes n.
-- **Rules are tuned on one corpus and reported on another** (checks M6).
-- **Gate:** the hook is enabled only when escapes are 100% true on the seeded
-  migration and the latency budget holds (§6.6).
+  F09).
+- **A fix is checked on projects it was not made against** (checks M6). A
+  new false finding there is another bug.
+- **Gate:** the hook is enabled only after a corpus run with no missed seed
+  and no false finding, with the latency budget holding (§6.6).
 
 ### 10.4 Mutation testing
 
@@ -978,6 +981,7 @@ supports the pinned Clang (verbs-b4x). Source mutants cover compile-time logic
 | Brief | Basics | Why |
 |---|---|---|
 | Delta daemon with clangd tiers | Stateless `verbs check` with verifying traces | Operator; push needs no residency; traces make it correct |
+| Agent run with and without verbs; edits-to-detection | Deterministic corpus runs (§1.1) | verbs is deterministic; the variance came from the agent |
 | `.verbs/decisions.jsonl` | No decisions in the basics | Nothing takes one once discovery is out (§5, §7) |
 | Annotations declare invariants | The vlib type is the declaration | No second declaration to drift |
 | `Bounded` widening only | Widening, checked `+=`/`-=`, `k`, `upto`, implicit egress | Loops and indices must read naturally |
@@ -1033,7 +1037,6 @@ The plan sequences these; listed here so the spec states what "done" means.
 | Reflection replaces VERBS_ENUM arrays | verbs-de3.27 |
 | Refined over deep value types | verbs-de3.28 |
 | Pointer-equality string comparison check | verbs-de3.29 |
-| Kill-criterion experiment | verbs-de3.30 |
 | C++ modules in analyzed units | verbs-de3.31 |
 | Facts shared across worktrees (constructive traces) | verbs-de3.32 |
 | Points-to narrowing of escape attribution | verbs-de3.33 |
