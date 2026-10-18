@@ -464,13 +464,31 @@ converts a vpr, so it is never touched.
    where rule 1 cannot see it (ChatGPT F03). Each call to such a function
    is judged at the call site as the conversion it performs, by rule 1's
    hierarchy rules: `static_pointer_cast` to a base is fine, and
-   `dynamic_pointer_cast<void>` is an escape (ChatGPT R3-04). Known
-   members:
-   - `as_bytes`, `as_writable_bytes`, `bit_cast`, `start_lifetime_as`,
-     `start_lifetime_as_array`;
+   `dynamic_pointer_cast<void>` is an escape (ChatGPT R3-04). The table
+   derived from libc++ 23.1.2 (context/prototypes/libcxx-alias-scan/REPORT.md
+   §2a):
+   - `as_bytes`, `as_writable_bytes`, `bit_cast`;
    - `static_pointer_cast`, `dynamic_pointer_cast`, `const_pointer_cast`,
-     `reinterpret_pointer_cast`;
-   - `__builtin_assume_aligned`, and the writing atomic builtins.
+     `reinterpret_pointer_cast`, and the `shared_ptr<void>`/`weak_ptr<void>`
+     converting constructors;
+   - `out_ptr`, `inout_ptr` and their `operator void**` and destructors;
+   - `atomic_ref<T>::address()`;
+   - `coroutine_handle<P>::address()`, and its conversion to
+     `coroutine_handle<>`;
+   - the builtins `__builtin_assume_aligned` and the writing atomics,
+     derived from Clang's `Builtins.td`.
+
+   `start_lifetime_as` is not in the pinned headers, so it joins the table
+   when a re-derivation finds it.
+
+   **Conversions libc++ performs for the caller.** A list cannot cover
+   these. `vector<void*>::emplace_back(&e)`, `std::copy` into `void**`,
+   `optional<void*>` from `optional<E*>` and five other programs convert
+   `E*` to `void*` inside generic code. No cast appears in the analyzed
+   code, and each writes 7 into a {0,1} enum (REPORT.md §2b). This is open
+   (§12, bead verbs-g5w). The candidate is a rule over substituted template
+   parameters, judged in the instantiated library code that an analyzed
+   call reaches.
 
    **The list is derived, not argued.** An earlier revision claimed the list
    was closed by the standard's text, and `dynamic_pointer_cast<void>`
@@ -680,6 +698,12 @@ Results for v2:
   `memcpy` case is an escape since round 3 (rule 4). A polymorphic
   `dynamic_cast` downcast into a vlib-containing class is not yet a case;
   the plan adds it.
+- **Library:** until 2026-10-18 the prototype parsed the Xcode SDK's
+  libc++, not the pinned 23.1.2, because a LibTooling binary outside the
+  LLVM install falls back to the SDK. Its flags now pass `-nostdinc++
+  -isystem` for the pinned headers. Rerun over all 82 case files, 81
+  verdicts are unchanged. b01 no longer compiles, because the pinned
+  libc++ has no `start_lifetime_as`.
 - **Cost:** the same as v1, about 1.0 s user time per libc++-heavy unit,
   against 0.55 s for `clang -fsyntax-only`.
 - **Holes the boundary excludes** (lane §5):
@@ -1045,6 +1069,9 @@ supports the pinned Clang (verbs-b4x). Source mutants cover compile-time logic
 3. Does suspending the report on compile errors (§6.2) leave any path in
    which a stale fact reads as a current claim?
 4. Does anything left in the basics lack a named consumer?
+5. Does a rule over substituted template parameters close the conversions
+   libc++ performs for the caller (§4.1 rule 2), with no false finding on
+   same-type library use?
 
 ## 13. Increments
 

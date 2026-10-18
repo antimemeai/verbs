@@ -480,3 +480,27 @@ driver warnings. Builds pass the Xcode SDK explicitly.
 **Disk.** The corpus download was paused at 312 complete tarballs (12 GB),
 when the APFS container had 18.8 GB free. `fetch.py` now keeps a 40 GiB
 floor and resumes cleanly.
+
+## 2026-10-18: library conversions (context/prototypes/libcxx-alias-scan/)
+
+A background lane scanned the pinned libc++ mechanically: 12,444 public
+declarations, plus instantiation probes.
+- **Rule 2's derived table.** It adds `const_pointer_cast` and
+  `dynamic_pointer_cast`, which the hand list knew but the spec lacked. It
+  also adds `out_ptr`/`inout_ptr`, `atomic_ref::address()` and
+  `coroutine_handle::address()`. `start_lifetime_as` is absent from the
+  pinned headers.
+- **A class that no list closes.** libc++ generic code converts `E*` to
+  `void*` for the caller, for example in `vector<void*>::emplace_back(&e)`
+  and `std::copy` into `void**`. Eight such programs write 7 with zero
+  prototype findings. This is open as bead verbs-g5w, with a candidate rule
+  over substituted template parameters.
+- **The prototype parsed the wrong libc++.** escape-v2 had been parsing the
+  Xcode SDK's libc++. The lane found it, and the main session confirmed it:
+  `<flat_set>` was not found. Fixed with `-nostdinc++ -isystem`. A rerun
+  over all 82 case files left 81 verdicts unchanged. b01
+  (`start_lifetime_as`) no longer compiles.
+- **The rule test was not run.** The lane's two attempts at the rule-R test
+  were stopped by a safety classifier, once with an adversarial framing and
+  once with a correctness framing. Following the classifier's instruction,
+  it was not retried. The operator decides how verbs-g5w is run.
