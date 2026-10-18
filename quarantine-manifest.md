@@ -113,3 +113,34 @@ echo "c98bbef08a2b4c2613cd50e9aa9ae7b69b1fe6c16b2c40373bc0ab6116fdf78a  llvm-pro
 cd .. && tar -xJf _archives/llvm-project-23.1.2.src.tar.xz && mv -f llvm-project-23.1.2.src llvm-project
 find llvm-project -type l -delete; find llvm-project -name .DS_Store -delete
 ```
+
+## C++ corpus — 2026-10-18 (in progress)
+
+Open-source C++ for the deterministic corpus runs (SPEC §1.1, bead verbs-2or).
+- **Selection is mechanical, not hand-picked.** GitHub's 1,000 most-starred
+  C++ repositories (`language:C++ archived:false fork:false`), minus those
+  with no license, those over 2 GB, and those not pushed since 2025-10-01.
+  That leaves 755. List: `context/corpus/selected.tsv`; candidates:
+  `context/corpus/candidates.tsv`.
+- **Archives:** `quarantine/_archives/corpus-2026-10-18/`, one GitHub source
+  tarball per repository at a full commit SHA. Tarballs carry no `.git`.
+  `context/corpus/fetched.tsv` records name, SHA, license, stars, bytes,
+  SHA-256 and file name. Licenses vary (MIT, Apache-2.0, BSD, GPL and
+  others). The corpus is local test input and is never redistributed.
+- **Submodules** are fetched at their pinned commits by `probe.py` into the
+  same archive directory, and unpacked in place.
+- **Extracted trees:** `quarantine/corpus/src/<owner>__<repo>/`, stripped of
+  `.git`, `.hg`, `.svn` and `.DS_Store`.
+- **Build outputs** never persist. Each configure runs in a per-project
+  build directory under `sandbox-exec`, which allows writes only there and
+  in temp directories. The directory is deleted when the probe ends,
+  including on failure. Only `compile_commands.json` is kept, in
+  `context/corpus/db/`.
+- **Status:** paused at 312 complete tarballs (12 GB), for disk space.
+
+Restore or resume from the repository root:
+
+```sh
+cd context/corpus
+python3 -I fetch.py selected.tsv ../../quarantine/_archives/corpus-2026-10-18 fetched.tsv 40
+```
