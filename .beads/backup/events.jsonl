@@ -80,3 +80,6 @@
 {"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T16:45:34Z","event_type":"label_added","id":80,"issue_id":"verbs-de3.34","new_value":null,"old_value":null}
 {"actor":"Patrick Beam","comment":null,"created_at":"2026-10-17T17:11:50Z","event_type":"created","id":81,"issue_id":"verbs-de3.35","new_value":"","old_value":""}
 {"actor":"Patrick Beam","comment":"Added label: deferred","created_at":"2026-10-17T17:11:50Z","event_type":"label_added","id":82,"issue_id":"verbs-de3.35","new_value":null,"old_value":null}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-18T13:32:40Z","event_type":"closed","id":83,"issue_id":"verbs-de3.30","new_value":"Superseded 2026-10-18: SPEC §1.1 corpus runs test detection and prevention deterministically, with no agent in the loop. The agent experiment's variance came from the agent, not verbs.","old_value":""}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-18T13:32:40Z","event_type":"created","id":84,"issue_id":"verbs-2or","new_value":"","old_value":""}
+{"actor":"Patrick Beam","comment":null,"created_at":"2026-10-18T14:47:03Z","event_type":"created","id":85,"issue_id":"verbs-g5w","new_value":"","old_value":""}
