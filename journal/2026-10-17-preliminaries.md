@@ -423,10 +423,60 @@ so SPEC §1.1 now tests it directly:
 - A missed seed or a false finding is a bug, with zero tolerance.
 - Each seed also records whether the compiler and the project's own tests
   already catch it. If verbs catches nothing they miss, we stop (brief §10).
-- Real commit histories also drive the incremental-equals-scratch oracle
-  (§10.2).
+- The incremental-equals-scratch oracle also runs on corpus projects
+  (§10.2). The corpus keeps no `.git`, so it uses generated edit sequences,
+  not upstream history.
 
 verbs-de3.30 is closed as superseded, and verbs-2or tracks the corpus
 script. The ChatGPT round-2 run had hung for 19 hours on stdin (no
 `< /dev/null`). It was relaunched on the current spec with MiMo's round-2
 findings marked as done.
+
+## 2026-10-18: ChatGPT round 2 (papers/2026-10-18-review-r2-chatgpt.md)
+
+The rerun completed once stdin was closed. It reported eight blockers and
+one major, all new. Each runtime probe was rebuilt from the report and run
+under ASan and UBSan at `-O2` on the pin (cases r3_01–r3_08 in
+context/prototypes/escape-v2/cases/). Each reached 7 with no sanitizer
+report. The exception is R3-08, a contradiction in the spec text, whose
+`static_assert` holds. The prototype caught only R3-04.
+
+| ID | Confirmed | Disposition |
+|---|---|---|
+| R3-01 `strtol` `endptr` returns the alias from the read-only sink | yes, 7 | Sink exception deleted (§4.1) |
+| R3-02 an exempted `memcpy` returns an erased destination | yes, 7 | `memcpy` exception deleted (rule 4) |
+| R3-03 a size multiple spans siblings; base tail padding | yes, 7 and 7 | Same deletion |
+| R3-04 `dynamic_pointer_cast<void>` missing from the "closed" list | yes, 7 (prototype catches it) | Rule 2 is judged at the call site; the list is derived from libc++, not argued |
+| R3-05 an unanalyzed function returns `E` by value | yes, 7 (two units) | §4.4 covers by-value returns and vpr variables |
+| R3-06 the `E**` erasure attributes to no leaf | yes, 7 (prototype: 0 escapes) | §4.8 uses reachable leaves; §10.2 audit judges claim states |
+| R3-07 environment and response files outside the trace | driver measured | The trace hashes the resolved `-cc1` line; verbs runs that line |
+| R3-08 the sink rule contradicts the `os << &e` example | yes | Moot: the exception is gone |
+| R3-09 the prevention oracle rejects correct adaptation | yes | §1.1: a "removed by construction" class with an expected-set oracle |
+
+**The deep problem.** In three rounds every confirmed miss in §4.1 came
+through one of the two exemptions or through a list declared closed by
+argument. With extreme prejudice:
+- Both exemptions are deleted. Their cost is code that `fwrite`s,
+  `memcmp`s, hashes or `memcpy`s vlib bytes directly. Each such finding is
+  fixed in code with `to_underlying` or assignment, an edit the operator
+  would accept, so it is a true finding, not a false one. The corpus runs
+  measure how often it occurs.
+- Rule 2's list is now derived mechanically from the pinned libc++, and a
+  re-derivation test runs on every toolchain change. A background lane is
+  deriving it (context/prototypes/libcxx-alias-scan/).
+
+**R3-07, measured.** For one source, the hash of `clang++ -###`'s `-cc1`
+line differed under each of these changes:
+- `CPATH=A` against `CPATH=B`;
+- response-file contents `-DBAD=0` against `-DBAD=1`;
+- `SOURCE_DATE_EPOCH` 1 against 2.
+
+The implicit config file
+`/opt/homebrew/Cellar/llvm/23.1.2/etc/clang/arm64-apple-darwin25.cfg` also
+appears in the resolution. It sets `-isysroot` to a Command Line Tools
+`MacOSX26.sdk` that is not installed, which is the source of the harmless
+driver warnings. Builds pass the Xcode SDK explicitly.
+
+**Disk.** The corpus download was paused at 312 complete tarballs (12 GB),
+when the APFS container had 18.8 GB free. `fetch.py` now keeps a 40 GiB
+floor and resumes cleanly.

@@ -1,10 +1,10 @@
 # verbs basics: design specification
 
-Status: revision 3, 2026-10-17, after the first tribunal, the Jev coverage
-audit, the ChatGPT and MiMo reviews (papers/2026-10-17-review-*.md) and the
-enum-candidate lane, whose evidence removed discovery and decisions from the
-basics (§5, §7). Amended 2026-10-18: deterministic corpus runs replace the
-agent experiment (§1.1).
+Status: revision 4, 2026-10-18. It follows the first tribunal, the Jev
+coverage audit, two rounds each of ChatGPT and MiMo review
+(papers/2026-10-1[78]-review-*.md), and the enum-candidate lane, whose
+evidence removed discovery and decisions from the basics (§5, §7).
+Deterministic corpus runs replace the agent experiment (§1.1).
 Scope: the basics
 only, per the basics-first principle (journal/2026-10-17-operator-decisions.md).
 Everything outside the basics is a bead and is named here only to mark the
@@ -83,12 +83,12 @@ code (doctrine D1).
   Blackbird's edit hook does not exist yet (doctrine Q6.6); adding it is
   blackbird work too.
 - **Defect classes, split by mechanism** (MiMo F8):
-  - *Prevented* by the migration. The compiler or `verbs::to` stops these at
-    the edit that would introduce them:
+  - *Removed by construction.* After the migration there is no separate
+    ingress to drift, because `verbs::to` follows the enum:
     - an ingress guard drifting from the enum (journal.cpp:278 hard-codes
       `{1,2,4,65535}` apart from `FrameKind`);
-    - an enumerator added without a matching ingress, since `verbs::to`
-      follows the enum;
+    - an enumerator added without a matching ingress.
+  - *Prevented* by the compiler at the edit that would introduce it:
     - an unhandled new enumerator in a `switch` (rule 10).
   - *Detected* by `verbs check`:
     - a raw integer-to-enum cast beside `verbs::to` (§4.2);
@@ -104,15 +104,20 @@ so it cannot hold vlib types and is not in the corpus.
 
 **What each corpus run checks.** The seeding script records every site it
 seeds, so it is the oracle, independent of verbs:
-1. **Prevention.** Each seeded fault of a prevented class fails the build at
-   the seeded line, or makes `verbs::to` refuse at that line.
-2. **Detection.** `verbs check` reports each seeded fault of a detected class
+1. **Removed by construction.** After each seeded enum change (an added,
+   removed or renumbered enumerator), `verbs::to` accepts exactly the
+   expected set, which the seeder writes down independently of the macro.
+   Accepting a new value is the correct result here, not a missed fault
+   (ChatGPT R3-09).
+2. **Prevention.** Each seeded fault of a prevented class fails the build at
+   the seeded line.
+3. **Detection.** `verbs check` reports each seeded fault of a detected class
    at the seeded line.
-3. **No false findings.** Every finding on the migrated, unseeded code is
+4. **No false findings.** Every finding on the migrated, unseeded code is
    read by the operator, or by an agent with no access to the check's source.
    A finding is true when the operator would accept the edit it asks for.
    Escapes already present in the project are expected, and they are true.
-4. **What verbs adds.** For each seeded fault, the run records whether the
+5. **What verbs adds.** For each seeded fault, the run records whether the
    compiler and the project's own tests catch it without verbs. If verbs
    catches no fault that they miss, it adds nothing, and we stop and rethink
    (brief §10).
@@ -198,9 +203,8 @@ Every claim holds only under these rules.
    silencing `!` line (§4.6).
    - Code linked into the program from outside the database is assumed to
      touch vlib-containing objects only through functions that the analyzed
-     code declares. It is also assumed never to write through a
-     pointer-to-const it receives, which is the C and C++ library contract
-     that the read-only sink (§4.1) relies on.
+     code declares. No erased pointer reaches it, because every erasure
+     is an escape (§4.1).
    - §4.4 checks those functions: a type that reaches one defined in no
      analyzed unit is `outside`.
 8. **No undefined behaviour outside vlib**: no out-of-bounds or
@@ -380,8 +384,8 @@ two external reviewers broke:
 
 > **The object representation of a vlib-containing object (§2) is written or
 > created only by (a) vlib's own members and factories (`verbs::to`,
-> `verbs::k`, vlib arithmetic), or (b) a copy or move from a valid object of
-> the same type.** Every other write or creation of those bytes, and every
+> `verbs::k`, vlib arithmetic), or (b) a typed copy or move (construction or
+> assignment) from a valid object of the same type.** Every other write or creation of those bytes, and every
 > loss of the static type of a pointer or reference to such an object, is an
 > **escape**.
 
@@ -445,47 +449,56 @@ converts a vpr, so it is never touched.
    `std::launder` returns its argument's type, so it loses nothing. The
    cast it is paired with is the escape.
 
-   **Read-only sink, the one exception.** An erased const pointer is a read
-   when it is the *direct argument expression* of a call to a function
-   declared outside the repository, whose parameter is pointer- or
-   reference-to-const, and whose return type is `void`, `bool`, an
-   arithmetic type or an enumeration. A pointer, reference, iterator or
-   class return could hand the alias back: `std::move(reinterpret_cast<const
-   unsigned char&>(e))` returns a reference (MiMo R2-03). That admits
-   `fwrite`, `write`, `memcmp`, a `(const void*, len)` hasher, and `os <<
-   &e`. Once bound to a named variable, the pointer is no longer a direct
-   argument, so `const_cast` paths (ChatGPT F02, MiMo F2) and hand-rolled
-   byte loops are escapes. That loop is the one idiom this costs.
-2. **Library entry points that expose representation.** A call to one of the
-   following with a vpr or vlib-containing argument is an escape. Each
-   returns a differently typed view of its argument's bytes, so the cast
-   happens inside libc++ (ChatGPT F03):
-   - `as_bytes`, `as_writable_bytes` ([span.objectrep]);
-   - `bit_cast` ([bit.cast]);
-   - `start_lifetime_as`, `start_lifetime_as_array` ([obj.lifetime]);
-   - `reinterpret_pointer_cast`, and `static_pointer_cast` to a different
-     element ([util.smartptr.shared.cast]);
+   **No exceptions, const included.** An earlier revision exempted an
+   erased const pointer passed straight to a read-only library function.
+   Every round broke that exemption: `const_cast` (ChatGPT F02, MiMo F2), a
+   returned reference (MiMo R2-03), `strtol`'s `endptr` handing the alias
+   back (ChatGPT R3-01). It also contradicted its own example, since `os <<
+   &e` returns `ostream&` (R3-08). A signature cannot show what a function
+   does with the alias, so the exemption is gone. `fwrite(&e, …)`,
+   `memcmp`, raw-byte hashing and `os << &e` are escapes. The fix in code
+   writes, compares or hashes `std::to_underlying(e)`, or `verbs::name(e)`.
+2. **Library functions that change a pointer's type.** libc++ internals
+   are not scanned (§4.5), so a library function that takes a vpr and
+   returns or writes a differently typed alias performs the conversion
+   where rule 1 cannot see it (ChatGPT F03). Each call to such a function
+   is judged at the call site as the conversion it performs, by rule 1's
+   hierarchy rules: `static_pointer_cast` to a base is fine, and
+   `dynamic_pointer_cast<void>` is an escape (ChatGPT R3-04). Known
+   members:
+   - `as_bytes`, `as_writable_bytes`, `bit_cast`, `start_lifetime_as`,
+     `start_lifetime_as_array`;
+   - `static_pointer_cast`, `dynamic_pointer_cast`, `const_pointer_cast`,
+     `reinterpret_pointer_cast`;
    - `__builtin_assume_aligned`, and the writing atomic builtins.
 
-   The list is closed by the standard's text. A library function exposes
-   bytes only through a clause that specifies a differently typed alias, and
-   these are those clauses. Any other reinterpretation is a cast that rule
-   1 sees, in analyzed code. libc++ internals are not scanned: measured,
-   that needs an open allowlist of benign internals.
+   **The list is derived, not argued.** An earlier revision claimed the list
+   was closed by the standard's text, and `dynamic_pointer_cast<void>`
+   refuted that. A script reads the pinned libc++'s declarations and lists
+   every public function whose pointer-like output can have a different
+   pointee type from its pointer-like input. The table it produces is
+   reviewed and committed. A test re-derives it on every toolchain change
+   and fails on any difference (§8 rule 4). The derivation lives in
+   context/prototypes/libcxx-alias-scan/ until the plan adopts it.
 3. **Bit reinterpretation.** `__builtin_bit_cast` whose source or result is
    vlib-containing or a vpr.
 4. **Raw byte writes and copies.** `memcpy`, `memmove`, `memset` and their
-   builtins, matched by exact name or builtin ID, never by substring.
-   - **Escape:** a call whose destination is vlib-containing storage or a
-     vpr object, or whose source is a vpr object. Copying an `E*` into a
-     `void*` slot is an escape (MiMo R2-04).
-   - **One exception:** a `memcpy` or `memmove` whose source and
-     destination pointees are the same type, with a constant length that is
-     a whole multiple of its size.
-   - A partial copy is an escape (ChatGPT F12).
-   - The arguments' implicit `void*` conversions are judged here, once, not
-     again by rule 1.
-   `memset` to an in-domain value is still an escape. It is fixed in code.
+   builtins, matched by exact name or builtin ID, never by substring. A call
+   is an escape when its destination or its source is vlib-containing
+   storage or a vpr object. Copying an `E*` into a `void*` slot is an escape
+   (MiMo R2-04). The arguments' implicit `void*` conversions are judged
+   here, once, not again by rule 1.
+
+   **No exceptions.** An earlier revision exempted a same-type copy whose
+   length was a multiple of the type's size. It was broken three ways:
+   - `memcpy` returns the erased destination (ChatGPT R3-02);
+   - a multiple of `sizeof(E)` from `&s.head` spans sibling fields of other
+     types (R3-03);
+   - `sizeof(Base)` copies a derived member stored in the base's tail
+     padding (R3-03).
+
+   Whole-object copies are fixed in code by assignment, and `memset` to an
+   in-domain value is fixed by assigning that value.
 5. **Unions.** A user-declared union with a vlib-containing or vpr member,
    at any depth.
 6. **`asm`.** An `asm` statement with a vlib-containing or vpr operand, or
@@ -549,12 +562,17 @@ makes them sound by construction.
 **Unanalyzed definitions.** The same records say which functions and
 variables some analyzed unit defines. Code defined in no analyzed unit can
 write anything it can reach, so rule 7 is checked here, not assumed
-(soundness m3). A vlib-containing type has all its claims `outside` when one
-of these is declared in analyzed code but defined in no analyzed unit:
-- a function that takes or returns a vpr to the type, including a const
-  one. `const_cast` makes a const pointer writable, and `span<E>` is a vpr
-  (MiMo R2-02);
-- a variable of the type.
+(soundness m3). A vlib type has all its claims `outside` when one of these is declared in
+analyzed code, defined in no analyzed unit, and mentions the type:
+- a function that takes or returns a vpr to it, including a const one.
+  `const_cast` makes a const pointer writable, and `span<E>` is a vpr (MiMo
+  R2-02);
+- a function that returns a value containing it: `E`, `optional<E>`, a
+  struct holding an `E` (ChatGPT R3-05);
+- a variable whose type contains it or is a vpr to it.
+
+Library declarations are judged at their typed API (§4.5), and are not
+unanalyzed definitions.
 
 The report names the declaration. A template instantiated only in unanalyzed
 units is the same case.
@@ -567,8 +585,8 @@ Clang's system-header flag.
   `-isystem`, cannot hide an escape.
 - libc++ and SDK code is judged at its typed API. Its internals are not
   scanned, and are never reported: `optional`'s union storage, `vector`'s
-  relocation `memcpy`. The rule 2 entry points are the closed exception,
-  because their specified effect is to hand back the bytes.
+  relocation `memcpy`. Rule 2's derived table covers the library functions
+  that change a pointer's type.
 
 ### 4.6 Silencing
 
@@ -579,8 +597,12 @@ verbs honours no suppression comment, and nothing silences a finding
 - **Hiding files.** `#pragma clang system_header`, or a line marker, in a
   repository file.
 - **Compile commands.** Any change to a unit's `-D`, `-U`, `-std`, `-W`,
-  `-w`, `-isystem`, `-include` or hardening arguments. verbs records each
-  unit's full argument vector and diffs it per run.
+  `-w`, `-isystem`, `-include` or hardening arguments, judged on the
+  resolved invocation (§6.2). verbs records it for each unit and diffs it
+  per run. A change of the resolved invocation with no change in the
+  database's command line comes from the environment, a response file or a
+  Clang config file (ChatGPT R3-07). It prints `!` and names the
+  difference.
 - **Assumptions.** `[[assume]]`, `__builtin_assume` or `__builtin_unreachable`
   outside vlib.
 - **Scope.** A change to verbs' path rule.
@@ -611,7 +633,11 @@ involved are known. Its **affected types** are these (MiMo R2-05):
 - for a vlib-reachable base, every analyzed class derived from it.
 
 It voids claims in two steps (ChatGPT F06, MiMo F5):
-1. It voids every **leaf vlib type** contained in an affected type.
+1. It voids every **leaf vlib type reachable** from an affected type:
+   contained in it, or reached through its pointers, references and vpr
+   wrappers, recursively. Erasing `&p` where `p` is an `E*` voids `E`
+   (ChatGPT R3-06). Containment, which stops at pointers, stays the notion
+   for representation (§2).
 2. It voids every claim, program-wide, whose type contains one of those
    leaves.
 
@@ -650,9 +676,10 @@ Results for v2:
   They cover `optional`, `variant`, `expected`, `tuple`, `vector` with `sort`
   and ranges, the ordered and unordered containers with vlib keys and
   `std::hash`, `array`, `span` of const, `std::format`, `atomic<E>`, smart
-  pointers, `std::function`, `deque`, `list`, `any`, and whole-object
-  `memcpy`. A polymorphic `dynamic_cast` downcast into a vlib-containing
-  class is not yet a case; the plan adds it.
+  pointers, `std::function`, `deque`, `list` and `any`. The whole-object
+  `memcpy` case is an escape since round 3 (rule 4). A polymorphic
+  `dynamic_cast` downcast into a vlib-containing class is not yet a case;
+  the plan adds it.
 - **Cost:** the same as v1, about 1.0 s user time per libc++-heavy unit,
   against 0.55 s for `clang -fsyntax-only`.
 - **Holes the boundary excludes** (lane §5):
@@ -668,11 +695,18 @@ Results for v2:
   - it does not handle `#undef` of vlib macros;
   - it matches the memory functions by substring;
   - it voids the whole unit for an erasure;
-  - it has no cross-unit step (v1 had one).
+  - it has no cross-unit step (v1 had one);
+  - it does not treat a pointer to a vpr as a vpr, so it misses the `E**`
+    erasure of R3-06;
+  - it implements the exemptions round 3 removed, so it misses R3-01 to
+    R3-03.
 
   The implementation follows this text, not the prototype. The round-2
   review confirmed R2-01 and R2-03 against it (prototype in
-  context/prototypes/escape-v2/, cases r2_01–r2_04).
+  context/prototypes/escape-v2/, cases r2_01–r2_04). Round 3's eight
+  cases are r3_01–r3_08. Each reaches 7 under ASan and UBSan at `-O2`,
+  except r3_08, which is a contradiction in the spec text. The prototype
+  catches only r3_04.
 
 The prototypes are evidence for the rule, not the implementation. The
 implementation is written red-first against §10.2, and every case above
@@ -731,7 +765,13 @@ the exit status (doctrine D18). The output text is not a versioned contract.
 
 Each run decides for itself which units changed. For each unit, verbs records
 a **trace** (core literature §9; checks B1, M7). The trace holds:
-- the hash of the unit's compile command;
+- the hash of the unit's **resolved invocation**: the `-cc1` command line
+  that the pinned driver prints for the database entry under `-###`, plus
+  the working directory. The driver folds `CPATH` and the other include
+  variables, response files, `SOURCE_DATE_EPOCH`, `SDKROOT` and Clang
+  config files into that line. Measured: changing any one of them changes
+  the line (ChatGPT R3-07). verbs then runs the `-cc1` line it hashed, so
+  the analysis sees the inputs the trace recorded;
 - every input file Clang read: SourceManager file entries, `#embed`
   resources, and the PCH's input-file list, each with size, mtime and content
   hash;
@@ -739,7 +779,7 @@ a **trace** (core literature §9; checks B1, M7). The trace holds:
   `__has_include` results.
 
 On every run:
-1. **Compilation database.** Diff it per entry by command hash. Drop facts
+1. **Compilation database.** Diff it per entry by resolved-invocation hash. Drop facts
    for removed entries. For a changed source that is not in the database,
    print `! outside: not in compilation database`.
 2. **Traces.** Hash the content of every recorded input on every run. Size
@@ -949,10 +989,10 @@ code exists (red first; doctrine D26).
 
 | Fault class | Oracle |
 |---|---|
-| Missed or spurious escape | One case file per §4 rule clause, with expected findings in source comments, compared exactly (the IWYU style). Each clause has a case that trips it and one that just misses it. Every counterexample from the tribunals, the external reviews and escape-v2 is a case. Round 2 named four that confirm only with the cross-unit step or the revised rule text. Each forged 7 under ASan/UBSan at `-O2` with zero prototype findings, except where noted: an upcast to a non-vlib base, then a `char*` store; an unanalyzed callee taking `const E*` or `span<E>`; a `std::move` reference through the read-only sink, then `memset`; and `memcpy(&void_slot, &e_ptr)`, then `memset`, which the prototype caught and the spec text had dropped (MiMo R2-09). Their just-miss partners: a non-vlib upcast never erased; `fwrite(&e, …)`. A polymorphic `dynamic_cast` downcast is a just-miss (legitimate). |
-| Escape the rule does not know | **Audit build** (checks M3). vlib's `get()` checks its invariant at runtime instead of assuming it. For enums, which have no accessor, `verbs::name`, `std::to_underlying` through a vlib wrapper, and every migrated seam's re-encode check membership against expected sets written independently in the tests (ChatGPT F14). Migrated blackbird's test suite runs under ASan and UBSan. Any runtime violation without an escape finding is a missed escape. **Limit:** sanitizers never check enum membership for fixed-underlying enums, so an enum read no audit point observes goes unseen; the case files (row above) carry that class. |
+| Missed or spurious escape | One case file per §4 rule clause, with expected findings in source comments, compared exactly (the IWYU style). Each clause has a case that trips it and one that just misses it. Every counterexample from the tribunals, the external reviews and escape-v2 is a case. Round 2 named four that confirm only with the cross-unit step or the revised rule text. Each forged 7 under ASan/UBSan at `-O2` with zero prototype findings, except where noted: an upcast to a non-vlib base, then a `char*` store; an unanalyzed callee taking `const E*` or `span<E>`; a `std::move` reference through the read-only sink, then `memset`; and `memcpy(&void_slot, &e_ptr)`, then `memset`, which the prototype caught and the spec text had dropped (MiMo R2-09). Their just-miss partners: a non-vlib upcast never erased; `fwrite` of `std::to_underlying(e)`. A polymorphic `dynamic_cast` downcast is a just-miss (legitimate). Round 3 added eight more (r3_01–r3_08): `strtol`'s `endptr`, `memcpy`'s returned pointer, a size multiple that spans sibling fields, a base copy over tail padding, `dynamic_pointer_cast<void>`, an unanalyzed function returning `E` by value, an `E**` erasure, and `os << &e`. Their just-miss partners: typed assignment in place of each copy; `static_pointer_cast` to a base. Each case asserts claim states, not only findings. |
+| Escape the rule does not know | **Audit build** (checks M3). vlib's `get()` checks its invariant at runtime instead of assuming it. For enums, which have no accessor, `verbs::name`, `std::to_underlying` through a vlib wrapper, and every migrated seam's re-encode check membership against expected sets written independently in the tests (ChatGPT F14). Migrated blackbird's test suite and the corpus projects' suites run under ASan and UBSan. A runtime violation of a value whose claim the report shows as `holds` is a missed escape, whether or not some escape was reported elsewhere. A misattributed escape is still a miss (ChatGPT R3-06). **Limit:** sanitizers never check enum membership for fixed-underlying enums, so an enum read no audit point observes goes unseen; the case files (row above) carry that class. |
 | Key instability | Metamorphic tests: reordering declarations, moving a function between units, and reformatting leave findings and keys unchanged. |
-| Incremental differs from scratch | After every generated sequence of changes, `verbs check` equals a fresh `verbs scan`. The generator includes out-of-band writes, created and deleted files, database changes, generated headers, and non-compiling intermediate states (checks M10). It also replays real commit histories from the corpus (§1.1), one commit per edit. Only complete runs are compared; a suspended run must print no claim (§6.2). |
+| Incremental differs from scratch | After every generated sequence of changes, `verbs check` equals a fresh `verbs scan`. The generator includes environment-only and response-file-only changes (ChatGPT R3-07), out-of-band writes, created and deleted files, database changes, generated headers, and non-compiling intermediate states (checks M10). It runs over corpus projects (§1.1) as well as small fixtures. Only complete runs are compared; a suspended run must print no claim (§6.2). |
 | Wrong delta | Delta tested as a pure function over report pairs: applying `delta(a, b)` to `a` gives `b`, and unshown findings persist until shown (doctrine D19). |
 | Corrupt facts | libFuzzer on every reader; a write-then-read round trip; a torn write leads to rebuild. |
 
