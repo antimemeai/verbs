@@ -151,3 +151,34 @@ python3 -I fetch.py unfetched.tsv ../../quarantine/_archives/corpus-2026-10-18 f
 python3 -I probe.py fetched.tsv ../../quarantine/_archives/corpus-2026-10-18 \
   ../../quarantine/corpus/src db ../../quarantine/corpus/build probe.tsv 8
 ```
+
+## Encoding-lane references — 2026-11-23
+
+Acquired by the encoding research lane (papers/2026-11-23-lane-encoding.md)
+as shallow clones with `.git` removed. Unlike the 2026-10-17 set, no
+source ZIP was retained; the commands below restore them.
+
+| Directory | Source | Revision | License | Size |
+|---|---|---|---|---|
+| `quarantine/rust-clippy` | https://github.com/rust-lang/rust-clippy | tag rust-1.99.0, 49e2f89a2605a9a340e04955fdbefa9803e6027a | MIT OR Apache-2.0 | 26 MB (2 license symlinks removed) |
+| `quarantine/dylint` | https://github.com/trailofbits/dylint | tag v6.4.0, 703f588db3e50ca3519bc9abea2eac2a9308a70d | MIT OR Apache-2.0 | 5.5 MB |
+| `quarantine/error-prone` | https://github.com/google/error-prone | tag v2.53.0, 5c3574f9d796d44b95154b865d268f102104a015 | Apache-2.0 | 22 MB |
+| `quarantine/rust-compiler-subset` | https://github.com/rust-lang/rust | tag 1.99.0, b940084d7eb6a299eb4bfeb8e34901bc051e7ac4 (sparse) | MIT OR Apache-2.0 | 9.5 MB |
+
+Restore, from the repository root:
+
+```sh
+cd quarantine
+git -c advice.detachedHead=false clone -q --depth 1 --branch rust-1.99.0 https://github.com/rust-lang/rust-clippy rust-clippy && rm -rf rust-clippy/.git && find rust-clippy -type l -delete
+git -c advice.detachedHead=false clone -q --depth 1 --branch v6.4.0 https://github.com/trailofbits/dylint dylint && rm -rf dylint/.git
+git -c advice.detachedHead=false clone -q --depth 1 --branch v2.53.0 https://github.com/google/error-prone error-prone && rm -rf error-prone/.git
+git -c advice.detachedHead=false clone -q --depth 1 --filter=blob:none --sparse --branch 1.99.0 https://github.com/rust-lang/rust rust-compiler-subset \
+  && (cd rust-compiler-subset && git sparse-checkout set compiler/rustc_lint compiler/rustc_lint_defs \
+      compiler/rustc_passes compiler/rustc_attr_parsing compiler/rustc_trait_selection/src/error_reporting/traits \
+      compiler/rustc_feature tests/ui/diagnostic_namespace tests/ui/lint/rfc-2383-lint-reason \
+      tests/ui/tool-attributes src/doc/unstable-book/src/language-features) \
+  && rm -rf rust-compiler-subset/.git
+```
+
+Lane probes and prototypes are in ignored `context/scratch-{encoding,adt}/`
+(the 90-line verbs plugin, the `vx::match` prototype).
