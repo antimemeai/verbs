@@ -1,5 +1,10 @@
 # verbs basics: design specification
 
+> **Superseded 2026-11-23.** The operator scrapped this design and kept the
+> idea (journal/2026-11-23-redesign.md). It stays as a record of what was
+> tried; papers/2026-11-23-old-design-postmortem.md says what carries over.
+> Do not build from it.
+
 Status: revision 4, 2026-10-18. It follows the first tribunal, the Jev
 coverage audit, two rounds each of ChatGPT and MiMo review
 (papers/2026-10-1[78]-review-*.md), and the enum-candidate lane, whose

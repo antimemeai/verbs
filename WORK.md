@@ -10,6 +10,23 @@ work is done, and record the outcome in journal/.
 
 ## Active
 
+### Redesign: habits as library constructs plus compiler and lint guards
+
+*P1 · task*
+
+journal/2026-11-23-redesign.md. Five research lanes (encoding mechanisms,
+algebraic data types, state machines and typestate, bounded types, what
+agents get wrong) write papers/2026-11-23-lane-*.md, each checked by a critic.
+Then deep research toward a design, a tribunal, and a plan. Starter habits:
+favor ADTs, use state machines, use bounded types.
+
+## From the superseded design
+
+Entries below were filed against design/SPEC.md, which was scrapped on
+2026-11-23. They stay as source material for the redesign; none is active
+until the new design adopts it. The corpus (verbs-2or) is likely to survive
+in some form.
+
 ### verbs-2or: Corpus runs: enum migration script, fault seeder, project list
 
 *P1 · task*
@@ -37,9 +54,9 @@ To test: all of q01-q08, p12, p16, p18 and p24 fire; the same-type controls (ben
 
 A subagent's two attempts at this test were stopped by a safety classifier, so the operator decides how it runs.
 
-## Deferred
+## Deferred by the superseded design
 
-Cases the basics leave out on purpose (SPEC §14, README claim boundary).
+Cases the old basics left out on purpose (SPEC §14).
 Each carries the `deferred` or `simplification` label.
 
 The former umbrella, verbs-de3, read: cases deferred under the basics-first
