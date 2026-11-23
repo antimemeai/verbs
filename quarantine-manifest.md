@@ -116,7 +116,7 @@ find llvm-project -type l -delete; find llvm-project -name .DS_Store -delete
 
 ## C++ corpus — 2026-10-18 (in progress)
 
-Open-source C++ for the deterministic corpus runs (SPEC §1.1, bead verbs-2or).
+Open-source C++ for the deterministic corpus runs (SPEC §1.1, WORK.md verbs-2or).
 - **Selection is mechanical, not hand-picked.** GitHub's 1,000 most-starred
   C++ repositories (`language:C++ archived:false fork:false`), minus those
   with no license, those over 2 GB, and those not pushed since 2025-10-01.

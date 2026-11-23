@@ -7,8 +7,8 @@ evidence removed discovery and decisions from the basics (§5, §7).
 Deterministic corpus runs replace the agent experiment (§1.1).
 Scope: the basics
 only, per the basics-first principle (journal/2026-10-17-operator-decisions.md).
-Everything outside the basics is a bead and is named here only to mark the
-edge (§14).
+Everything outside the basics is an entry in WORK.md and is named here only
+to mark the edge (§14).
 
 **Inputs:**
 - design/verbs-design-brief.md (orientation, not settled);
@@ -179,9 +179,9 @@ Every claim holds only under these rules.
   unit that fails one has all its claims `outside`.
 
 1. **No exception unwinds mid-mutation of user code.** vlib's own operations
-   check before they store, so they give the strong guarantee (§3.1). Bead
-   verbs-de3.11.
-2. **No moved-from object is used.** Bead verbs-de3.12.
+   check before they store, so they give the strong guarantee (§3.1).
+   See verbs-de3.11.
+2. **No moved-from object is used.** See verbs-de3.12.
 3. **Single owner.** An invariant belongs to one declaration and its type.
    The owner keeps no second writable view of the object's storage. That
    includes a byte array or allocator buffer that also backs it (escape-v2
@@ -291,14 +291,14 @@ VERBS_ENUM(PhaseKind, std::uint8_t, VERBS_UNSET(none),
 - **Exhaustiveness** comes from rule 10 (`-Werror=switch-enum`).
 - **Reflection** (`std::meta::enumerators_of`) will replace the macro's
   arrays when the pinned Clang has P2996. The macro's syntax does not change
-  (bead verbs-de3.27).
+  (verbs-de3.27).
 
 ### 3.3 `Bounded<Lo, Hi>`
 
 An integer whose value is always in `[Lo, Hi]`.
 
 **Bounds and storage.**
-- Bounds are `std::int64_t`; wider bounds are bead verbs-de3.18.
+- Bounds are `std::int64_t`; wider bounds are verbs-de3.18.
 - Storage is the smallest signed or unsigned type that holds `[Lo, Hi]`
   (ergonomics S7).
 - `Lo > Hi` is a compile error.
@@ -373,7 +373,7 @@ is no `common_type` specialization until the corpus asks for one.
 **Consumers.** None is named in blackbird yet (doctrine D12). Enums are the
 first migration. `Bounded` lands when a named blackbird declaration needs it:
 candidates are the limit and count fields such as `limits_.max_causal_depth`.
-If the plan finds none, `Bounded` moves to a bead.
+If the plan finds none, `Bounded` moves to WORK.md.
 
 ## 4. The escape check
 
@@ -486,7 +486,7 @@ converts a vpr, so it is never touched.
    `optional<void*>` from `optional<E*>` and five other programs convert
    `E*` to `void*` inside generic code. No cast appears in the analyzed
    code, and each writes 7 into a {0,1} enum (REPORT.md §2b). This is open
-   (§12, bead verbs-g5w). The candidate is a rule over substituted template
+   (§12, verbs-g5w). The candidate is a rule over substituted template
    parameters, judged in the instantiated library code that an analyzed
    call reaches.
 
@@ -671,8 +671,8 @@ keeps its claim.
   units, and it was not adopted.
 
 Narrowing to the exact declaration needs points-to analysis (soundness M7;
-bead verbs-de3.33). The coarse rule never yields a false `holds`; it costs
-only precision.
+verbs-de3.33). The coarse rule never yields a false `holds`; it costs only
+precision.
 
 ### 4.9 Evidence
 
@@ -753,7 +753,7 @@ on blackbird and measured on BRepGPU as held-out data:
 
 It is not a correctness check (doctrine D5). The rule, its settled points
 (never gate; observed values are a lower bound), and the cheapest precise
-follow-up are in bead verbs-de3.35. That follow-up reports only subjects fed
+follow-up are in verbs-de3.35. That follow-up reports only subjects fed
 from an existing enum, which was 3 of 3 true on blackbird.
 
 ## 6. `verbs check`
@@ -819,8 +819,7 @@ On every run:
 Other cases:
 - **PCH:** the prefix header is parsed with `-include` and the PCH flags are
   stripped.
-- **Modules:** a unit that imports a module is `outside` (bead
-  verbs-de3.31).
+- **Modules:** a unit that imports a module is `outside` (verbs-de3.31).
 - **Compile errors suspend the report** (ChatGPT F08, MiMo F3). A unit
   that compiled before and now fails may hold an escape, and an escape
   voids claims in every unit (§4.8). So no claim is current. The run then does three things:
@@ -923,18 +922,18 @@ Rules:
   after a facts-format change, is a full scan, about 46 s on 16 idle cores.
   It prints a progress line first, so the wait is visible.
 - **Concurrency:** verbs processes in different build directories do not
-  share job slots, so several agents on a loaded host slow each other (bead
-  verbs-de3.34).
+  share job slots, so several agents on a loaded host slow each other
+  (verbs-de3.34).
 - **Gate:** enabling the check in Blackbird's hook is gated on this budget,
-  measured on blackbird (bead verbs-de3.14), alongside the precision gate
+  measured on blackbird (verbs-de3.14), alongside the precision gate
   (§10.3).
 
 ## 7. Decisions: not in the basics
 
 Decisions recorded verdicts on proposal subjects. With discovery removed
 (§5), nothing in the basics takes a decision, so `VERBS_OPEN_DOMAIN`, the
-exit-3 gate and the decision lifecycle leave with it (bead verbs-de3.35).
-Two results carry over to that bead:
+exit-3 gate and the decision lifecycle leave with it (verbs-de3.35).
+Two results carry over to that entry:
 - **Placement** (operator decision, 2026-10-17): on the declaration.
 - **The gate must prevent, not merely detect** (doctrine D3).
 
@@ -956,7 +955,7 @@ change, not a compiler change.
   in the basics depends on it.
 - **Contracts (P2900).** The operator ranks contracts above reflection for
   verbs' purpose. Contracts are the standard vocabulary for function-boundary
-  obligations, which vlib types can discharge. Two beads cover this:
+  obligations, which vlib types can discharge. Two entries cover this:
   evaluating the contracts branch, and that next phase (verbs-de3.26).
   Contracts never carry vlib's own representation invariants, because a build
   may select the `ignore` semantic (§3.1).
@@ -972,7 +971,7 @@ change, not a compiler change.
 4. `llvm` stays pinned in Homebrew. Any toolchain change rebuilds every verbs
    binary.
 5. Mull 0.34.2 supports macOS LLVM 16–21, so mutation runs need it ported to
-   23 or a fleet profile (bead verbs-b4x).
+   23 or a fleet profile (verbs-b4x).
 
 ## 9. Layout
 
@@ -1051,7 +1050,7 @@ supports the pinned Clang (verbs-b4x). Source mutants cover compile-time logic
 | `Bounded` widening only | Widening, checked `+=`/`-=`, `k`, `upto`, implicit egress | Loops and indices must read naturally |
 | UB in constant evaluation for bound overflow | `__int128` everywhere, with `static_assert` | Clear diagnostics; `%` and `+=` edge cases |
 | `VERBS_ENUM` positional | `name = value`, zero rule, reflection later | Wire domains |
-| `Refined`, `Id`, typestate, capabilities | Deferred (beads) | No corpus consumer; blackbird's `Id` is stronger |
+| `Refined`, `Id`, typestate, capabilities | Deferred (WORK.md) | No corpus consumer; blackbird's `Id` is stronger |
 | Deny-list of escape constructs | Allowlist by AST meaning | Soundness tribunal |
 | Lint suppression honoured | Nothing silences a finding | Escapes are fixed in code |
 | SQLite cache, preservation verdicts | Per-unit traces and facts | Nothing else to cache |
@@ -1082,11 +1081,11 @@ The plan sequences these; listed here so the spec states what "done" means.
    §10 oracles for all of these. Lands with blackbird's decoding-seam
    migration (§1.1).
 2. **B: `Bounded`**, once a blackbird declaration is named (§3.3). Otherwise
-   it moves to a bead.
+   it moves to WORK.md.
 
-## 14. Deferred beads named in this spec
+## 14. Deferred work named in this spec
 
-| Topic | Bead |
+| Topic | WORK.md entry |
 |---|---|
 | Two-state predicates and old values | verbs-de3.1 |
 | FSM checking; trace validation | verbs-de3.2, verbs-de3.3 |

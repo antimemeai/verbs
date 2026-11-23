@@ -27,7 +27,7 @@ claim:
   claimed, except `const`.
 
 Code outside these bounds is reported as outside the claim, not as passing.
-The deferred cases are tracked as beads under `verbs-de3`.
+The deferred cases are listed in WORK.md.
 
 ## What exists today
 

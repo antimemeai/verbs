@@ -12,8 +12,7 @@ Use no runtime dependencies. Discuss any proposed library adoption first.
 Keep PDFs, context/, quarantine/, credentials, and generated artifacts ignored.
 Record meaningful work in journal/.
 
-<!-- BEGIN BEADS INTEGRATION -->
-Track all remaining work in bd (beads), prefix `verbs-`; see ~/AGENTS.md for
-commands and the session-completion workflow. Deferred and simplified design
-cases carry the `deferred` or `simplification` label.
-<!-- END BEADS INTEGRATION -->
+Open work lives in WORK.md: add an entry when work is found, delete it when it
+is done, and record the outcome in journal/. Deferred and simplified design
+cases carry the `deferred` or `simplification` label. Beads and Dolt were
+retired on 2026-11-23; do not initialize or recreate a bd workspace here.
